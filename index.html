@@ -39,7 +39,20 @@ function renderAll(){renderSelectors();renderCurriculum();renderSessions();rende
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(b.dataset.go).classList.add('active');document.querySelectorAll('.nav button').forEach(n=>n.classList.toggle('on',n.dataset.go===b.dataset.go));renderAll()}));
 document.querySelectorAll('.moretab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.morepane').forEach(p=>p.classList.add('hidden'));$(b.dataset.pane).classList.remove('hidden')}));
 $('builderGoal').addEventListener('change',()=>{syncBuilderExercise();syncBuilderComponent()});$('builderExercise').addEventListener('change',syncBuilderComponent);$('trainGoal').addEventListener('change',syncTrainExercise);$('trainExercise').addEventListener('change',syncTrainComponent);$('trainComponent').addEventListener('change',renderTrainCurrent);
-$('saveGoal').onclick=()=>{if(!$('goalName').value.trim())return toast('Goal needs a name');db.goals.push({id:uid(),name:$('goalName').value.trim(),finished:$('finishedPicture').value.trim(),criteria:$('goalCriteria').value.trim()});$('goalName').value='';$('finishedPicture').value='';$('goalCriteria').value='';save();toast('Goal added')};
+$('saveGoal').onclick=()=>{
+  const name=$('goalName').value.trim();
+  if(!name)return toast('Goal needs a name');
+  const goal={id:uid(),name,finished:$('finishedPicture').value.trim(),criteria:$('goalCriteria').value.trim()};
+  db.goals.push(goal);
+  try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){db.goals=db.goals.filter(g=>g.id!==goal.id);return toast('Could not save goal on this device')}
+  renderAll();
+  $('builderGoal').value=goal.id;
+  syncBuilderExercise();
+  syncBuilderComponent();
+  $('trainGoal').value=goal.id;
+  syncTrainExercise();
+  toast('BH saved — add an exercise');
+};
 $('saveExercise').onclick=()=>{if(!$('builderGoal').value||!$('exerciseName').value.trim())return toast('Choose goal + name exercise');db.exercises.push({id:uid(),goalId:$('builderGoal').value,name:$('exerciseName').value.trim()});$('exerciseName').value='';save();toast('Exercise added')};
 $('saveComponent').onclick=()=>{if(!$('builderExercise').value||!$('componentName').value.trim())return toast('Choose exercise + name component');db.components.push({id:uid(),exerciseId:$('builderExercise').value,name:$('componentName').value.trim(),currentStepId:null});$('componentName').value='';save();toast('Component added')};
 $('saveStep').onclick=()=>{let c=db.components.find(x=>x.id===$('builderComponent').value);if(!c||!$('stepName').value.trim())return toast('Choose component + name step');let arr=componentSteps(c.id);let s={id:uid(),componentId:c.id,name:$('stepName').value.trim(),criterion:$('stepCriterion').value.trim(),order:arr.length+1};db.steps.push(s);if(!c.currentStepId)c.currentStepId=s.id;$('stepName').value='';$('stepCriterion').value='';save();toast('Progression step added')};
