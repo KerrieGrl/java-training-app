@@ -20,10 +20,16 @@ h1{font-size:34px;margin:8px 0}h2{margin:4px 0 14px}p{color:var(--muted);line-he
 </head>
 <body>
 <main class="app">
-<div class="top"><div class="brand">JAVA TRAINING</div><div class="build">CLEAN BUILD 3</div></div>
+<div class="top"><div class="brand">JAVA TRAINING</div><div class="build">CLEAN BUILD 4</div></div>
 <section id="home" class="screen active">
 <h1>Java</h1><p>Clean foundation. No duplicate selectors. No inherited builder.</p>
 <div class="card"><h2>Task Analysis</h2><p>Build Goal → Exercise → Component → Progression. Each thing opens the thing beneath it.</p><button class="btn wide" id="openTA">OPEN TASK ANALYSIS</button></div>
+<div class="card">
+<h2>Backup & Restore</h2>
+<p>Export everything currently saved in Java Training to one JSON backup file. Restore that file later on this phone or another device.</p>
+<div class="row"><button class="btn grow" id="exportBackup">EXPORT BACKUP</button><button class="btn alt grow" id="restoreBackup">RESTORE BACKUP</button></div>
+<input id="restoreFile" type="file" accept=".json,application/json" style="display:none">
+</div>
 </section>
 <section id="ta" class="screen"><div id="browser"></div></section>
 </main>
@@ -95,44 +101,57 @@ function render(){
  if(view.level==='steps'){let g=goal(),e=exercise(),c=component();h=`<button class="btn alt back">← ${esc(e.name)}</button><div class="card"><div class="crumb">${esc(g.name)} → ${esc(e.name)} → COMPONENT</div><h1>${esc(c.name)}</h1><div class="mini"><b>COMPONENT FINISHED PICTURE</b><br>${esc(c.finishedPicture||'Not defined yet.')}</div><div class="row" style="margin-top:12px"><button class="btn alt edit" data-type="components" data-id="${c.id}">EDIT FINISHED PICTURE</button><button class="btn alt suggestions" data-kind="component" data-id="${c.id}">GET SUGGESTIONS</button></div><h2>Progression</h2>`;steps(c.id).forEach(st=>h+=`<div class="item"><div class="title">${esc(st.name)}${c.currentStepId===st.id?'<span class="pill">CURRENT</span>':''}</div><div class="mini">${esc(st.criterion)}</div><div class="row"><button class="btn current" data-id="${st.id}">SET CURRENT</button>${buttons('steps',st.id)}</div></div>`);h+=`<button class="btn wide" id="addStep">+ ADD STEP</button></div>`}
  $('browser').innerHTML=h
 }
-$('openTA').onclick=()=>{show('ta');view={level:'goals',goalId:null,exerciseId:null,componentId:null};render()}
-$('homeBtn').onclick=()=>show('home')
 
 function exportBackup(){
-  const payload={
-    backupFormat:"java-training-backup",
-    backupVersion:1,
-    exportedAt:new Date().toISOString(),
-    storageKey:"java_training_clean_v1",
-    data:db
-  };
-  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  const stamp=new Date().toISOString().slice(0,10);
-  a.href=url;a.download="java-training-backup-"+stamp+".json";
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+ const payload={
+   backupFormat:'java-training-backup',
+   backupVersion:1,
+   exportedAt:new Date().toISOString(),
+   data:db
+ };
+ const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement('a');
+ a.href=url;
+ a.download='java-training-backup-'+new Date().toISOString().slice(0,10)+'.json';
+ document.body.appendChild(a);
+ a.click();
+ a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
-function validBackup(x){
-  return x && x.backupFormat==="java-training-backup" && x.backupVersion===1 &&
-    x.data && Array.isArray(x.data.goals) && Array.isArray(x.data.exercises) &&
-    Array.isArray(x.data.components) && Array.isArray(x.data.steps);
+function validBackup(p){
+ return p && p.backupFormat==='java-training-backup' && p.backupVersion===1 &&
+ p.data && p.data.version===1 &&
+ Array.isArray(p.data.goals) && Array.isArray(p.data.exercises) &&
+ Array.isArray(p.data.components) && Array.isArray(p.data.steps);
 }
-function chooseRestore(){document.getElementById("restoreFile")?.click()}
-async function restoreBackupFile(file){
-  if(!file)return;
-  try{
-    const text=await file.text(), payload=JSON.parse(text);
-    if(!validBackup(payload)){alert("That file is not a valid Java Training backup.");return}
-    const d=payload.data;
-    const summary=`Goals: ${d.goals.length}\nExercises: ${d.exercises.length}\nComponents: ${d.components.length}\nProgression steps: ${d.steps.length}`;
-    if(!confirm("RESTORE THIS BACKUP?\n\n"+summary+"\n\nThis will replace the data currently saved in this clean build."))return;
-    db=d; save(); view={level:"home",goalId:null,exerciseId:null,componentId:null}; render();
-    alert("Backup restored successfully.");
-  }catch(err){alert("Could not restore that backup file.")}
+async function restoreBackup(file){
+ if(!file)return;
+ try{
+   const p=JSON.parse(await file.text());
+   if(!validBackup(p)){alert('That is not a valid Java Training backup. Nothing was changed.');return}
+   const d=p.data;
+   const msg='RESTORE THIS BACKUP?\n\nGoals: '+d.goals.length+
+     '\nExercises: '+d.exercises.length+
+     '\nComponents: '+d.components.length+
+     '\nProgression steps: '+d.steps.length+
+     '\n\nThis replaces the Java Training data currently saved on this device.';
+   if(!confirm(msg))return;
+   db=d;
+   save();
+   view={level:'goals',goalId:null,exerciseId:null,componentId:null};
+   show('home');
+   alert('Backup restored successfully.');
+ }catch(err){
+   alert('That backup could not be read. Nothing was changed.');
+ }
 }
 
+$('openTA').onclick=()=>{show('ta');view={level:'goals',goalId:null,exerciseId:null,componentId:null};render()}
+$('homeBtn').onclick=()=>show('home')
+$('exportBackup').onclick=exportBackup
+$('restoreBackup').onclick=()=>$('restoreFile').click()
+$('restoreFile').onchange=e=>{const f=e.target.files&&e.target.files[0];restoreBackup(f);e.target.value=''}
 document.addEventListener('click',e=>{
  let b=e.target.closest('button');if(!b)return;
  if(b.id==='addGoal')return addGoal();if(b.id==='addExercise')return addExercise();if(b.id==='addComponent')return addComponent();if(b.id==='addStep')return addStep();
