@@ -10,7 +10,7 @@
 </style>
 </head>
 <body><main class="app">
-<div class="top"><div class="brand">FIELDWORK ☕︎</div><div class="dog">JAVA • BUILD 2</div></div>
+<div class="top"><div class="brand">FIELDWORK ☕︎</div><div class="dog">JAVA • BUILD 3</div></div>
 <section id="home" class="screen active"><div class="hero"><h1>What are we training?</h1><p>Curriculum first. Fast in the field.</p><button class="btn wide" data-go="train" style="margin-top:16px">TRAIN NOW</button></div><div class="card"><h3>Current curriculum</h3><div id="homeSummary"></div></div><div class="card"><h3>Recent work</h3><div id="recentSessions"></div></div></section>
 <section id="train" class="screen"><h1>Train Now</h1><div id="trainPick" class="card"><div class="field"><label>Goal</label><select id="trainGoal"></select></div><div class="field"><label>Exercise</label><select id="trainExercise"></select></div><div class="field"><label>Component / Dimension</label><select id="trainComponent"></select></div><div id="trainCurrent" class="step current"></div><button id="setupBtn" class="btn wide">SESSION SETUP →</button></div><div id="setup" class="card hidden"><h3>Session setup</h3><div class="field"><label>Location</label><input id="location" placeholder="Club, home, field…"></div><div class="field"><label>Reinforcer</label><select id="reinforcer"><option>Food</option><option>Toy</option><option>Both</option><option>Other</option><option>None</option></select></div><div class="field"><label>Reward Position</label><input id="rewardPosition" placeholder="Your exact terminology"></div><div class="field"><label>Handler State</label><input id="handlerState" placeholder="Focused, tired, feral…"></div><div class="field"><label>Recording</label><select id="recording"><option>Session Overview</option><option>Rep by Rep</option></select></div><button id="startBtn" class="btn wide">START</button></div><div id="trainingLive" class="hidden"><div class="card"><div class="crumb" id="liveCrumb"></div><h2 id="liveStep"></h2><p id="liveCriterion"></p></div><div id="toolsArea"></div><div class="card"><h3>Result</h3><div class="outcomes"><button class="btn alt outcome" data-o="Beautiful Coffee">☕ Beautiful</button><button class="btn alt outcome" data-o="Full Coffee">☕ Full</button><button class="btn alt outcome" data-o="Productive Coffee">☕ Productive</button><button class="btn alt outcome" data-o="Rough Coffee">☕ Rough</button><button class="btn danger outcome" data-o="Spilled Coffee">☕ Spilled</button></div><div id="chosenOutcome" class="mini" style="margin-top:10px">No outcome selected.</div><div class="field"><label>GOOD</label><textarea id="good"></textarea></div><div class="field"><label>BAD</label><textarea id="bad"></textarea></div><div class="field"><label>WEIRD</label><textarea id="weird"></textarea></div><div class="field"><label>What limited progress?</label><select id="limited"><option>None</option><option>Dog</option><option>Handler</option><option>Plan</option><option>Environment</option><option>Weird / Unknown</option></select></div><div class="field"><label>Progression decision</label><select id="decision"><option>Repeat</option><option>Advance</option><option>Step Back</option><option>Choose Different Step</option></select></div><button id="saveSession" class="btn wide">SAVE SESSION</button></div></div></section>
 <section id="plan" class="screen"><h1>Weekly Plan</h1><div class="card"><p>This slice keeps planned work separate from completed sessions.</p><div class="field"><label>Planned item</label><input id="planText" placeholder="e.g. Heeling — Position"></div><button id="addPlan" class="btn">ADD</button><div id="planList"></div></div></section>
@@ -52,10 +52,22 @@ $('goalName').value=goalDraft;
 function captureGoal(){goalDraft=$('goalName').value;try{localStorage.setItem(DRAFT_KEY,goalDraft)}catch(e){};$('goalDebug').textContent=goalDraft.trim()?('Ready to add: '+goalDraft.trim()):'Goal field ready.'}
 ['input','change','keyup','blur'].forEach(ev=>$('goalName').addEventListener(ev,captureGoal));
 captureGoal();
+try{
+  const probe='fieldwork_storage_probe'; localStorage.setItem(probe,'ok');
+  if(localStorage.getItem(probe)!=='ok') throw new Error('storage readback failed');
+  localStorage.removeItem(probe);
+}catch(e){
+  $('goalDebug').textContent='⚠ Local storage is unavailable in this browser context.';
+}
 $('saveGoal').addEventListener('click',()=>{
   captureGoal();
-  const name=goalDraft.trim();
-  if(!name){$('goalName').focus();return toast('Type a goal name in the GOAL box first')}
+  let name=String($('goalName').value||goalDraft||'').trim();
+  if(!name){
+    const entered=window.prompt('Goal name (example: BH)','');
+    if(entered===null)return;
+    name=String(entered).trim();
+  }
+  if(!name){$('goalName').focus();return toast('Goal name is still empty')}
   const goal={id:uid(),name,finished:$('finishedPicture').value.trim(),criteria:$('goalCriteria').value.trim()};
   db.goals.push(goal);
   try{persist()}catch(e){db.goals=db.goals.filter(g=>g.id!==goal.id);return toast('Could not save goal on this device')}
