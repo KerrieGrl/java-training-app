@@ -10,7 +10,7 @@
 </style>
 </head>
 <body><main class="app">
-<div class="top"><div class="brand">FIELDWORK ☕︎</div><div class="dog">JAVA • CORE LOOP 1</div></div>
+<div class="top"><div class="brand">FIELDWORK ☕︎</div><div class="dog">JAVA • CURRICULUM 1</div></div>
 <section id="home" class="screen active">
 <div class="hero"><h1>What are we training?</h1><p>Current work. One tap into the field.</p></div>
 <div id="homeWork"></div>
@@ -20,7 +20,10 @@
 <section id="train" class="screen"><h1>Train Now</h1><div id="trainPick" class="card hidden"><h3>Choose other work</h3><div class="field"><label>Goal</label><select id="trainGoal"></select></div><div class="field"><label>Exercise</label><select id="trainExercise"></select></div><div class="field"><label>Component / Dimension</label><select id="trainComponent"></select></div><div id="trainCurrent" class="step current"></div><button id="setupBtn" class="btn wide">SESSION SETUP →</button></div><div id="setup" class="card hidden"><div class="crumb" id="setupCrumb"></div><h3>Session setup</h3><div class="field"><label>Location</label><input id="location" placeholder="Club, home, field…"></div><div class="field"><label>Reinforcer</label><select id="reinforcer"><option>Food</option><option>Toy</option><option>Both</option><option>Other</option><option>None</option></select></div><div class="field"><label>Reward Position</label><input id="rewardPosition" placeholder="Your exact terminology"></div><div class="field"><label>Handler State</label><input id="handlerState" placeholder="Focused, tired, feral…"></div><div class="field"><label>Recording</label><select id="recording"><option>Session Overview</option><option>Rep by Rep</option></select></div><button id="startBtn" class="btn wide">START</button></div><div id="trainingLive" class="hidden"><div class="card"><div class="crumb" id="liveCrumb"></div><h2 id="liveStep"></h2><p id="liveCriterion"></p></div><div id="toolsArea"></div><div class="card"><h3>Result</h3><div class="outcomes"><button class="btn alt outcome" data-o="Beautiful Coffee">☕ Beautiful</button><button class="btn alt outcome" data-o="Full Coffee">☕ Full</button><button class="btn alt outcome" data-o="Productive Coffee">☕ Productive</button><button class="btn alt outcome" data-o="Rough Coffee">☕ Rough</button><button class="btn danger outcome" data-o="Spilled Coffee">☕ Spilled</button></div><div id="chosenOutcome" class="mini" style="margin-top:10px">No outcome selected.</div><div class="field"><label>GOOD</label><textarea id="good"></textarea></div><div class="field"><label>BAD</label><textarea id="bad"></textarea></div><div class="field"><label>WEIRD</label><textarea id="weird"></textarea></div><div class="field"><label>What limited progress?</label><select id="limited"><option>None</option><option>Dog</option><option>Handler</option><option>Plan</option><option>Environment</option><option>Weird / Unknown</option></select></div><div class="field"><label>Progression decision</label><select id="decision"><option>Repeat</option><option>Advance</option><option>Step Back</option><option>Choose Different Step</option></select></div><button id="saveSession" class="btn wide">SAVE SESSION</button></div></div></section>
 <section id="plan" class="screen"><h1>Weekly Plan</h1><div class="card"><p>This slice keeps planned work separate from completed sessions.</p><div class="field"><label>Planned item</label><input id="planText" placeholder="e.g. Heeling — Position"></div><button id="addPlan" class="btn">ADD</button><div id="planList"></div></div></section>
 <section id="progress" class="screen"><h1>Progress</h1><div class="card"><h3>Training distribution</h3><div id="progressStats"></div></div><div class="card"><h3>Session history</h3><div id="history"></div></div></section>
-<section id="more" class="screen"><h1>More</h1><div class="tabs"><button class="btn alt moretab" data-pane="builder">Task Analysis</button><button class="btn alt moretab" data-pane="tools">Tools</button><button class="btn alt moretab" data-pane="backup">Backup</button></div><div id="builder" class="morepane"><div class="card"><h3>Build curriculum</h3><div class="field"><label>Goal</label><input id="goalName" type="text" name="goalName" autocomplete="off" autocapitalize="words" placeholder="Type goal name, e.g. BH"></div><div class="field"><label>Finished Picture</label><textarea id="finishedPicture"></textarea></div><div class="field"><label>Objective / Trial Criteria</label><textarea id="goalCriteria"></textarea></div><button id="saveGoal" type="button" class="btn wide">ADD GOAL</button><div id="goalDebug" class="mini" style="margin-top:8px">Goal field ready.</div></div><div class="card"><div class="field"><label>Goal</label><select id="builderGoal"></select></div><div class="field"><label>Exercise</label><input id="exerciseName" placeholder="Heeling"></div><button id="saveExercise" class="btn wide">ADD EXERCISE</button></div><div class="card"><div class="field"><label>Exercise</label><select id="builderExercise"></select></div><div class="field"><label>Component / Dimension</label><input id="componentName" placeholder="Emotion, Precision, Position…"></div><button id="saveComponent" class="btn wide">ADD COMPONENT</button></div><div class="card"><div class="field"><label>Component</label><select id="builderComponent"></select></div><div class="field"><label>Step name</label><input id="stepName" placeholder="Step 1"></div><div class="field"><label>Today's criterion</label><textarea id="stepCriterion"></textarea></div><button id="saveStep" class="btn wide">ADD PROGRESSION STEP</button></div><div class="card"><h3>Curriculum</h3><div id="curriculum"></div></div></div><div id="tools" class="morepane hidden"><div class="card"><h3>Random Timer</h3><p class="mini">Saved tools can be attached to a component.</p><div class="field"><label>Component</label><select id="timerComponent"></select></div><div class="two"><div class="field"><label>Min seconds</label><input id="timerMin" type="number" min="1" value="30"></div><div class="field"><label>Max seconds</label><input id="timerMax" type="number" min="1" value="120"></div></div><button id="saveTimer" class="btn wide">SAVE RANDOM TIMER</button></div><div class="card"><h3>Random Generator</h3><div class="field"><label>Component</label><select id="genComponent"></select></div><div class="field"><label>Generator name</label><input id="genName" placeholder="Tracking Article Randomizer"></div><div class="field"><label>Number range label</label><input id="numLabel" placeholder="Steps"></div><div class="two"><div class="field"><label>Min</label><input id="numMin" type="number" value="4"></div><div class="field"><label>Max</label><input id="numMax" type="number" value="30"></div></div><div class="field"><label>Second variable label</label><input id="choiceLabel" placeholder="Article"></div><div class="field"><label>Your choices — comma separated</label><input id="choices" placeholder="Article 1, Article 2, Article 3"></div><div class="field"><label>Dependent placement?</label><select id="dependent"><option value="no">No</option><option value="yes">Yes — also generate placement from 1 to generated number</option></select></div><button id="saveGenerator" class="btn wide">SAVE GENERATOR</button></div></div><div id="backup" class="morepane hidden"><div class="card"><h3>Backup & Restore</h3><p>Export the complete working data as JSON. Save it in Files/iCloud Drive.</p><button id="exportBtn" class="btn wide">EXPORT JSON BACKUP</button><div class="field"><label>Restore JSON backup</label><input id="importFile" type="file" accept="application/json,.json"></div><button id="restoreBtn" class="btn warn wide">RESTORE SELECTED BACKUP</button><p class="mini">Restore replaces the current local data after validation.</p></div></div></section>
+<section id="more" class="screen">
+  <div class="hero"><h1>Task Analysis</h1><p>Build the work once. Open it and keep going.</p></div>
+  <div id="curriculumBrowser"></div>
+</section>
 </main><div class="nav"><div class="navin"><button class="on" data-go="home">⌂<br>Home</button><button data-go="train">▶<br>Train</button><button data-go="plan">▦<br>Plan</button><button data-go="progress">↗<br>Progress</button><button data-go="more">•••<br>More</button></div></div><div id="toast" class="toast"></div>
 <script>
 const KEY='fieldwork_v1';
@@ -50,7 +53,131 @@ function renderPlans(){$('planList').innerHTML=db.plans.map((p,i)=>`<div class="
 function getCurrentStep(c){if(!c)return null;let ss=componentSteps(c.id);return ss.find(x=>x.id===c.currentStepId)||ss[0]||null}
 function renderHomeWork(){let h='';db.goals.forEach(g=>{let exs=goalExercises(g.id).filter(e=>exerciseComponents(e.id).some(c=>getCurrentStep(c)));if(!exs.length)return;h+=`<div class="card"><div class="sectionTitle" style="margin-top:0">${esc(g.name)}</div>`;exs.forEach(e=>{h+=`<h3 style="margin-top:14px">${esc(e.name)}</h3>`;exerciseComponents(e.id).forEach(c=>{let st=getCurrentStep(c);if(!st)return;h+=`<div class="listitem row"><div class="grow"><b>${esc(c.name)}</b><div class="mini">${esc(st.name)}${st.criterion?' • '+esc(st.criterion):''}</div></div><button class="btn quickTrain" data-g="${g.id}" data-e="${e.id}" data-c="${c.id}">TRAIN</button></div>`});});h+='</div>'});$('homeWork').innerHTML=h||'<div class="card"><h3>No current work yet</h3><p class="mini">Build one goal, exercise, component and progression step in Task Analysis. Then current work appears here.</p></div>'}
 function prepareSession(gid,eid,cid){let g=db.goals.find(x=>x.id===gid),e=db.exercises.find(x=>x.id===eid),c=db.components.find(x=>x.id===cid),st=getCurrentStep(c);if(!g||!e||!c||!st)return toast('This work needs a current progression step');$('trainGoal').value=g.id;syncTrainExercise();$('trainExercise').value=e.id;syncTrainComponent();$('trainComponent').value=c.id;renderTrainCurrent();activeSession={g,e,c,s:st};$('setupCrumb').textContent=`${g.name} → ${e.name} → ${c.name} → ${st.name}`;document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('train').classList.add('active');document.querySelectorAll('.nav button').forEach(n=>n.classList.toggle('on',n.dataset.go==='train'));$('trainPick').classList.add('hidden');$('trainingLive').classList.add('hidden');$('setup').classList.remove('hidden')}
-function renderAll(){renderSelectors();renderCurriculum();renderSessions();renderPlans();renderHomeWork()}
+
+let curriculumView={level:'goals',goalId:null,exerciseId:null,componentId:null};
+
+function curGoal(){return db.goals.find(x=>x.id===curriculumView.goalId)}
+function curExercise(){return db.exercises.find(x=>x.id===curriculumView.exerciseId)}
+function curComponent(){return db.components.find(x=>x.id===curriculumView.componentId)}
+
+function curriculumBack(){
+  if(curriculumView.level==='steps') curriculumView={level:'components',goalId:curriculumView.goalId,exerciseId:curriculumView.exerciseId,componentId:null};
+  else if(curriculumView.level==='components') curriculumView={level:'exercises',goalId:curriculumView.goalId,exerciseId:null,componentId:null};
+  else if(curriculumView.level==='exercises') curriculumView={level:'goals',goalId:null,exerciseId:null,componentId:null};
+  renderCurriculumBrowser();
+}
+function askText(label,current=''){
+  const v=prompt(label,current);
+  return v===null?null:v.trim();
+}
+function addGoalClean(){
+  const name=askText('Goal name');
+  if(!name)return;
+  const finished=askText('Finished picture')??'';
+  const criteria=askText('Objective / trial criteria')??'';
+  const g={id:id(),name,finished,criteria};
+  db.goals.push(g);save();
+  curriculumView={level:'exercises',goalId:g.id,exerciseId:null,componentId:null};
+  renderAll(); renderCurriculumBrowser(); toast(`${name} saved`);
+}
+function addExerciseClean(){
+  const g=curGoal(); if(!g)return;
+  const name=askText('Exercise name'); if(!name)return;
+  const e={id:id(),goalId:g.id,name}; db.exercises.push(e); save();
+  curriculumView={level:'components',goalId:g.id,exerciseId:e.id,componentId:null};
+  renderAll(); renderCurriculumBrowser(); toast(`${name} saved`);
+}
+function addComponentClean(){
+  const e=curExercise(); if(!e)return;
+  const name=askText('Component / dimension name'); if(!name)return;
+  const c={id:id(),exerciseId:e.id,name,currentStepId:null}; db.components.push(c); save();
+  curriculumView={level:'steps',goalId:curriculumView.goalId,exerciseId:e.id,componentId:c.id};
+  renderAll(); renderCurriculumBrowser(); toast(`${name} saved`);
+}
+function addStepClean(){
+  const c=curComponent(); if(!c)return;
+  const name=askText('Progression step name'); if(!name)return;
+  const criterion=askText('Criterion for this step')??'';
+  const ss=componentSteps(c.id);
+  const st={id:id(),componentId:c.id,name,criterion,order:ss.length+1};
+  db.steps.push(st); if(!c.currentStepId)c.currentStepId=st.id; save();
+  renderAll(); renderCurriculumBrowser(); toast(`${name} saved`);
+}
+function editItem(type,obj){
+  if(!obj)return;
+  const name=askText(`${type} name`,obj.name); if(!name)return;
+  obj.name=name;
+  if(type==='Goal'){const f=askText('Finished picture',obj.finished||''); if(f!==null)obj.finished=f; const c=askText('Objective / trial criteria',obj.criteria||''); if(c!==null)obj.criteria=c}
+  if(type==='Step'){const c=askText('Criterion',obj.criterion||''); if(c!==null)obj.criterion=c}
+  save();renderAll();renderCurriculumBrowser();
+}
+function deleteItem(type,obj){
+  if(!obj||!confirm(`Delete ${type} "${obj.name}"?`))return;
+  if(type==='Goal'){
+    const exIds=db.exercises.filter(e=>e.goalId===obj.id).map(e=>e.id), coIds=db.components.filter(c=>exIds.includes(c.exerciseId)).map(c=>c.id);
+    db.steps=db.steps.filter(st=>!coIds.includes(st.componentId)); db.components=db.components.filter(c=>!exIds.includes(c.exerciseId)); db.exercises=db.exercises.filter(e=>e.goalId!==obj.id); db.goals=db.goals.filter(g=>g.id!==obj.id);
+    curriculumView={level:'goals',goalId:null,exerciseId:null,componentId:null};
+  }else if(type==='Exercise'){
+    const coIds=db.components.filter(c=>c.exerciseId===obj.id).map(c=>c.id); db.steps=db.steps.filter(st=>!coIds.includes(st.componentId)); db.components=db.components.filter(c=>c.exerciseId!==obj.id); db.exercises=db.exercises.filter(e=>e.id!==obj.id);
+    curriculumView={level:'exercises',goalId:curriculumView.goalId,exerciseId:null,componentId:null};
+  }else if(type==='Component'){
+    db.steps=db.steps.filter(st=>st.componentId!==obj.id); db.components=db.components.filter(c=>c.id!==obj.id);
+    curriculumView={level:'components',goalId:curriculumView.goalId,exerciseId:curriculumView.exerciseId,componentId:null};
+  }else{
+    db.steps=db.steps.filter(st=>st.id!==obj.id); const c=curComponent(); if(c&&c.currentStepId===obj.id)c.currentStepId=(componentSteps(c.id)[0]||{}).id||null;
+  }
+  save();renderAll();renderCurriculumBrowser();toast(`${type} deleted`);
+}
+function setCurrentStepClean(st){
+  const c=curComponent();if(!c)return;c.currentStepId=st.id;save();renderAll();renderCurriculumBrowser();toast(`${st.name} is current`);
+}
+function renderCurriculumBrowser(){
+  const root=$('curriculumBrowser'); if(!root)return;
+  let h='';
+  if(curriculumView.level==='goals'){
+    h=`<div class="card"><div class="sectionTitle" style="margin-top:0">GOALS</div>`;
+    if(!db.goals.length)h+=`<p class="mini">No goals yet.</p>`;
+    db.goals.forEach(g=>h+=`<div class="listitem"><div class="row"><div class="grow"><b>${esc(g.name)}</b><div class="mini">${esc(g.finished||'')}</div></div><button class="btn openGoal" data-id="${g.id}">OPEN</button></div><div class="row" style="margin-top:8px"><button class="btn alt editGoal" data-id="${g.id}">EDIT</button><button class="btn danger deleteGoal" data-id="${g.id}">DELETE</button></div></div>`);
+    h+=`<button class="btn wide" id="newGoalClean">+ NEW GOAL</button></div>`;
+  } else if(curriculumView.level==='exercises'){
+    const g=curGoal(); if(!g){curriculumView.level='goals';return renderCurriculumBrowser()}
+    h=`<button class="btn alt" id="currBack">← GOALS</button><div class="card"><div class="sectionTitle" style="margin-top:0">${esc(g.name)}</div><div class="mini">${esc(g.finished||'')}</div><h3>Exercises</h3>`;
+    goalExercises(g.id).forEach(e=>h+=`<div class="listitem row"><div class="grow"><b>${esc(e.name)}</b></div><button class="btn openExercise" data-id="${e.id}">OPEN</button><button class="btn alt editExercise" data-id="${e.id}">EDIT</button><button class="btn danger deleteExercise" data-id="${e.id}">DELETE</button></div>`);
+    h+=`<button class="btn wide" id="newExerciseClean">+ ADD EXERCISE</button></div>`;
+  } else if(curriculumView.level==='components'){
+    const g=curGoal(),e=curExercise(); if(!g||!e){curriculumView.level='goals';return renderCurriculumBrowser()}
+    h=`<button class="btn alt" id="currBack">← ${esc(g.name)}</button><div class="card"><div class="crumb">${esc(g.name)} →</div><div class="sectionTitle" style="margin-top:0">${esc(e.name)}</div><h3>Components / Dimensions</h3>`;
+    exerciseComponents(e.id).forEach(c=>{let st=getCurrentStep(c);h+=`<div class="listitem"><div class="row"><div class="grow"><b>${esc(c.name)}</b><div class="mini">${st?'Current: '+esc(st.name):'No progression steps yet'}</div></div><button class="btn openComponent" data-id="${c.id}">OPEN</button></div><div class="row" style="margin-top:8px"><button class="btn alt editComponent" data-id="${c.id}">EDIT</button><button class="btn danger deleteComponent" data-id="${c.id}">DELETE</button></div></div>`});
+    h+=`<button class="btn wide" id="newComponentClean">+ ADD COMPONENT</button></div>`;
+  } else {
+    const g=curGoal(),e=curExercise(),c=curComponent(); if(!g||!e||!c){curriculumView.level='goals';return renderCurriculumBrowser()}
+    h=`<button class="btn alt" id="currBack">← ${esc(e.name)}</button><div class="card"><div class="crumb">${esc(g.name)} → ${esc(e.name)} →</div><div class="sectionTitle" style="margin-top:0">${esc(c.name)}</div><h3>Progression</h3>`;
+    componentSteps(c.id).forEach(st=>h+=`<div class="listitem"><div><b>${esc(st.name)}</b>${c.currentStepId===st.id?' <span class="pill">CURRENT</span>':''}<div class="mini">${esc(st.criterion||'')}</div></div><div class="row" style="margin-top:8px"><button class="btn setCurrent" data-id="${st.id}">SET CURRENT</button><button class="btn alt editStep" data-id="${st.id}">EDIT</button><button class="btn danger deleteStep" data-id="${st.id}">DELETE</button></div></div>`);
+    h+=`<button class="btn wide" id="newStepClean">+ ADD STEP</button></div>`;
+  }
+  root.innerHTML=h;
+}
+document.addEventListener('click',e=>{
+  let b;
+  if((b=e.target.closest('#newGoalClean')))return addGoalClean();
+  if((b=e.target.closest('#newExerciseClean')))return addExerciseClean();
+  if((b=e.target.closest('#newComponentClean')))return addComponentClean();
+  if((b=e.target.closest('#newStepClean')))return addStepClean();
+  if((b=e.target.closest('#currBack')))return curriculumBack();
+  if((b=e.target.closest('.openGoal'))){curriculumView={level:'exercises',goalId:b.dataset.id,exerciseId:null,componentId:null};return renderCurriculumBrowser()}
+  if((b=e.target.closest('.openExercise'))){curriculumView={level:'components',goalId:curriculumView.goalId,exerciseId:b.dataset.id,componentId:null};return renderCurriculumBrowser()}
+  if((b=e.target.closest('.openComponent'))){curriculumView={level:'steps',goalId:curriculumView.goalId,exerciseId:curriculumView.exerciseId,componentId:b.dataset.id};return renderCurriculumBrowser()}
+  if((b=e.target.closest('.editGoal')))return editItem('Goal',db.goals.find(x=>x.id===b.dataset.id));
+  if((b=e.target.closest('.deleteGoal')))return deleteItem('Goal',db.goals.find(x=>x.id===b.dataset.id));
+  if((b=e.target.closest('.editExercise')))return editItem('Exercise',db.exercises.find(x=>x.id===b.dataset.id));
+  if((b=e.target.closest('.deleteExercise')))return deleteItem('Exercise',db.exercises.find(x=>x.id===b.dataset.id));
+  if((b=e.target.closest('.editComponent')))return editItem('Component',db.components.find(x=>x.id===b.dataset.id));
+  if((b=e.target.closest('.deleteComponent')))return deleteItem('Component',db.components.find(x=>x.id===b.dataset.id));
+  if((b=e.target.closest('.editStep')))return editItem('Step',db.steps.find(x=>x.id===b.dataset.id));
+  if((b=e.target.closest('.deleteStep')))return deleteItem('Step',db.steps.find(x=>x.id===b.dataset.id));
+  if((b=e.target.closest('.setCurrent')))return setCurrentStepClean(db.steps.find(x=>x.id===b.dataset.id));
+});
+function renderAll(){renderSelectors();renderCurriculum();renderSessions();renderPlans();renderHomeWork();renderCurriculumBrowser();}
 document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(b.dataset.go).classList.add('active');document.querySelectorAll('.nav button').forEach(n=>n.classList.toggle('on',n.dataset.go===b.dataset.go));renderAll()}));
 document.querySelectorAll('.moretab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.morepane').forEach(p=>p.classList.add('hidden'));$(b.dataset.pane).classList.remove('hidden')}));
 document.addEventListener('click',e=>{let b=e.target.closest('.quickTrain');if(b)prepareSession(b.dataset.g,b.dataset.e,b.dataset.c)});
