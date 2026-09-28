@@ -20,7 +20,7 @@ h1{font-size:34px;margin:8px 0}h2{margin:4px 0 14px}p{color:var(--muted);line-he
 </head>
 <body>
 <main class="app">
-<div class="top"><div class="brand">JAVA TRAINING</div><div class="build">CLEAN BUILD 2</div></div>
+<div class="top"><div class="brand">JAVA TRAINING</div><div class="build">CLEAN BUILD 3</div></div>
 <section id="home" class="screen active">
 <h1>Java</h1><p>Clean foundation. No duplicate selectors. No inherited builder.</p>
 <div class="card"><h2>Task Analysis</h2><p>Build Goal → Exercise → Component → Progression. Each thing opens the thing beneath it.</p><button class="btn wide" id="openTA">OPEN TASK ANALYSIS</button></div>
@@ -97,6 +97,42 @@ function render(){
 }
 $('openTA').onclick=()=>{show('ta');view={level:'goals',goalId:null,exerciseId:null,componentId:null};render()}
 $('homeBtn').onclick=()=>show('home')
+
+function exportBackup(){
+  const payload={
+    backupFormat:"java-training-backup",
+    backupVersion:1,
+    exportedAt:new Date().toISOString(),
+    storageKey:"java_training_clean_v1",
+    data:db
+  };
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  const stamp=new Date().toISOString().slice(0,10);
+  a.href=url;a.download="java-training-backup-"+stamp+".json";
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function validBackup(x){
+  return x && x.backupFormat==="java-training-backup" && x.backupVersion===1 &&
+    x.data && Array.isArray(x.data.goals) && Array.isArray(x.data.exercises) &&
+    Array.isArray(x.data.components) && Array.isArray(x.data.steps);
+}
+function chooseRestore(){document.getElementById("restoreFile")?.click()}
+async function restoreBackupFile(file){
+  if(!file)return;
+  try{
+    const text=await file.text(), payload=JSON.parse(text);
+    if(!validBackup(payload)){alert("That file is not a valid Java Training backup.");return}
+    const d=payload.data;
+    const summary=`Goals: ${d.goals.length}\nExercises: ${d.exercises.length}\nComponents: ${d.components.length}\nProgression steps: ${d.steps.length}`;
+    if(!confirm("RESTORE THIS BACKUP?\n\n"+summary+"\n\nThis will replace the data currently saved in this clean build."))return;
+    db=d; save(); view={level:"home",goalId:null,exerciseId:null,componentId:null}; render();
+    alert("Backup restored successfully.");
+  }catch(err){alert("Could not restore that backup file.")}
+}
+
 document.addEventListener('click',e=>{
  let b=e.target.closest('button');if(!b)return;
  if(b.id==='addGoal')return addGoal();if(b.id==='addExercise')return addExercise();if(b.id==='addComponent')return addComponent();if(b.id==='addStep')return addStep();
