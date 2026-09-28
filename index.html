@@ -13,14 +13,14 @@ button,input,textarea{font:inherit}button{cursor:pointer}.app{max-width:760px;ma
 h1{font-size:34px;margin:8px 0}h2{margin:4px 0 14px}p{color:var(--muted);line-height:1.4}.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:18px;margin:14px 0}
 .btn{border:0;border-radius:16px;background:var(--lime);color:#111;padding:14px 16px;font-weight:900}.btn.alt{background:#34352f;color:var(--ink);border:1px solid var(--line)}.btn.danger{background:transparent;color:#f08a7e;border:1px solid #74443f}.wide{width:100%}
 .row{display:flex;gap:9px;align-items:center}.grow{flex:1}.item{padding:15px 0;border-bottom:1px solid #3c3d36}.item:last-child{border-bottom:0}.title{font-size:20px;font-weight:850}.mini{font-size:14px;color:var(--muted);margin-top:4px}.crumb{font-size:13px;color:var(--lime);font-weight:800;letter-spacing:.04em;margin-bottom:8px}
-.screen{display:none}.screen.active{display:block}.empty{text-align:center;padding:28px 10px}.pill{display:inline-block;font-size:11px;background:var(--lime);color:#111;padding:4px 7px;border-radius:99px;font-weight:900;margin-left:6px}
+.screen{display:none}.screen.active{display:block}.empty{text-align:center;padding:28px 10px}.suggest{margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:14px;color:var(--muted);font-size:14px}.suggest b{color:var(--ink)}.pill{display:inline-block;font-size:11px;background:var(--lime);color:#111;padding:4px 7px;border-radius:99px;font-weight:900;margin-left:6px}
 .nav{position:fixed;left:0;right:0;bottom:0;background:#11120fdd;backdrop-filter:blur(12px);border-top:1px solid #33352f;padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;justify-content:center}
 .nav button{max-width:720px;width:100%;background:none;border:0;color:var(--lime);font-weight:900;font-size:16px;padding:10px}
 </style>
 </head>
 <body>
 <main class="app">
-<div class="top"><div class="brand">JAVA TRAINING</div><div class="build">CLEAN BUILD 1</div></div>
+<div class="top"><div class="brand">JAVA TRAINING</div><div class="build">CLEAN BUILD 2</div></div>
 <section id="home" class="screen active">
 <h1>Java</h1><p>Clean foundation. No duplicate selectors. No inherited builder.</p>
 <div class="card"><h2>Task Analysis</h2><p>Build Goal → Exercise → Component → Progression. Each thing opens the thing beneath it.</p><button class="btn wide" id="openTA">OPEN TASK ANALYSIS</button></div>
@@ -46,8 +46,8 @@ function exs(gid){return db.exercises.filter(x=>x.goalId===gid)}
 function comps(eid){return db.components.filter(x=>x.exerciseId===eid)}
 function steps(cid){return db.steps.filter(x=>x.componentId===cid).sort((a,b)=>a.order-b.order)}
 function addGoal(){let name=ask('Goal name');if(!name)return;let finished=ask('Finished picture')??'',criteria=ask('Objective / trial criteria')??'';let g={id:uid(),name,finished,criteria};db.goals.push(g);save();view={level:'exercises',goalId:g.id,exerciseId:null,componentId:null};render()}
-function addExercise(){let g=goal(),name=ask('Exercise name');if(!g||!name)return;let e={id:uid(),goalId:g.id,name};db.exercises.push(e);save();view={level:'components',goalId:g.id,exerciseId:e.id,componentId:null};render()}
-function addComponent(){let e=exercise(),name=ask('Component / dimension name');if(!e||!name)return;let c={id:uid(),exerciseId:e.id,name,currentStepId:null};db.components.push(c);save();view={level:'steps',goalId:view.goalId,exerciseId:e.id,componentId:c.id};render()}
+function addExercise(){let g=goal(),name=ask('Exercise name');if(!g||!name)return;let finishedPicture=ask('Overall exercise finished picture — what does finished '+name+' look like?')??'';let e={id:uid(),goalId:g.id,name,finishedPicture};db.exercises.push(e);save();view={level:'components',goalId:g.id,exerciseId:e.id,componentId:null};render()}
+function addComponent(){let e=exercise(),name=ask('Component / dimension name');if(!e||!name)return;let finishedPicture=ask('Finished picture for '+name+' — what does this independent piece look like when finished?')??'';let c={id:uid(),exerciseId:e.id,name,finishedPicture,currentStepId:null};db.components.push(c);save();view={level:'steps',goalId:view.goalId,exerciseId:e.id,componentId:c.id};render()}
 function addStep(){let c=component(),name=ask('Progression step name');if(!c||!name)return;let criterion=ask('Criterion')??'',st={id:uid(),componentId:c.id,name,criterion,order:steps(c.id).length+1};db.steps.push(st);if(!c.currentStepId)c.currentStepId=st.id;save();render()}
 function del(type,id){
  let obj=db[type].find(x=>x.id===id);if(!obj||!confirm('Delete "'+obj.name+'"?'))return;
@@ -57,7 +57,33 @@ function del(type,id){
  if(type==='steps'){db.steps=db.steps.filter(x=>x.id!==id);let c=component();if(c&&c.currentStepId===id)c.currentStepId=(steps(c.id)[0]||{}).id||null}
  save();render()
 }
-function edit(type,id){let o=db[type].find(x=>x.id===id);if(!o)return;let n=ask('Name',o.name);if(!n)return;o.name=n;if(type==='goals'){let f=ask('Finished picture',o.finished);if(f!==null)o.finished=f;let c=ask('Objective / trial criteria',o.criteria);if(c!==null)o.criteria=c}if(type==='steps'){let c=ask('Criterion',o.criterion);if(c!==null)o.criterion=c}save();render()}
+function edit(type,id){let o=db[type].find(x=>x.id===id);if(!o)return;let n=ask('Name',o.name);if(!n)return;o.name=n;if(type==='goals'){let f=ask('Finished picture',o.finished||'');if(f!==null)o.finished=f;let c=ask('Objective / trial criteria',o.criteria||'');if(c!==null)o.criteria=c}if(type==='exercises'){let f=ask('Overall exercise finished picture',o.finishedPicture||'');if(f!==null)o.finishedPicture=f}if(type==='components'){let f=ask('Component finished picture',o.finishedPicture||'');if(f!==null)o.finishedPicture=f}if(type==='steps'){let c=ask('Criterion',o.criterion||'');if(c!==null)o.criterion=c}save();render()}
+
+const suggestionLibrary={
+  exercise:{
+    heeling:["Define the complete heel picture: position, engagement/emotion, duration, turns, pace changes and environmental reliability.","Describe what you want to see from start cue through release, without forcing every component to progress at the same rate."]
+  },
+  component:{
+    emotion:["Describe the emotional picture you want: engagement, enthusiasm, body language, intensity and recovery while heeling.","Define observable signs that tell you the emotion is right, rather than using a vague label like 'happy'."],
+    precision:["Describe exact position relative to the handler, consistency of alignment, head/body position and what counts as drifting or forging.","Define the precision picture independently from enthusiasm or duration so it can progress on its own."],
+    duration:["Define how long the component should remain correct before reinforcement, and what quality must be maintained across that time."],
+    generalization:["Define the environments, distractions, surfaces or contexts in which the behavior should remain reliable."],
+    position:["Define the exact spatial relationship to the handler and the observable boundaries of correct position."],
+    turns:["Define the finished response through each turn type, including position and continuity before, during and after the turn."],
+    "pace changes":["Define the finished response across pace transitions while preserving the qualities that matter for this component."]
+  }
+};
+function ideasFor(kind,name){
+  let key=(name||'').trim().toLowerCase(), list=(suggestionLibrary[kind]||{})[key];
+  if(list)return list;
+  return kind==='exercise'
+    ?["Describe the complete finished exercise as observable behavior: what starts it, what correct performance looks like, and what ends it.","List the major independent pieces that will need their own component progressions; keep those out of one global exercise level."]
+    :["Describe only this component's finished picture in observable terms. What would make you say this piece is exactly where you want it?","Keep this criterion independent from sibling components so this piece can advance or repeat without moving the others."];
+}
+function showSuggestions(kind,id){
+  let o=db[kind==='exercise'?'exercises':'components'].find(x=>x.id===id);if(!o)return;
+  alert((kind==='exercise'?'Exercise':'Component')+' suggestions for '+o.name+':\\n\\n• '+ideasFor(kind,o.name).join('\\n\\n• ')+'\\n\\nThese are idea starters only. Nothing is saved unless you choose your own wording in Edit.');
+}
 function setCurrent(id){let c=component();if(!c)return;c.currentStepId=id;save();render()}
 function back(){if(view.level==='steps')view={level:'components',goalId:view.goalId,exerciseId:view.exerciseId,componentId:null};else if(view.level==='components')view={level:'exercises',goalId:view.goalId,exerciseId:null,componentId:null};else view={level:'goals',goalId:null,exerciseId:null,componentId:null};render()}
 function buttons(type,id){return `<div class="row"><button class="btn alt edit" data-type="${type}" data-id="${id}">EDIT</button><button class="btn danger delete" data-type="${type}" data-id="${id}">DELETE</button></div>`}
@@ -65,8 +91,8 @@ function render(){
  let h='';
  if(view.level==='goals'){h=`<h1>Task Analysis</h1><p>Tap a goal to go inside it.</p><div class="card">`;if(!db.goals.length)h+=`<div class="empty"><div class="title">No goals yet</div><p>Create one. It will save once and immediately open.</p></div>`;db.goals.forEach(g=>h+=`<div class="item"><div class="row"><div class="grow"><div class="title">${esc(g.name)}</div><div class="mini">${esc(g.finished)}</div></div><button class="btn openGoal" data-id="${g.id}">OPEN</button></div>${buttons('goals',g.id)}</div>`);h+=`<button class="btn wide" id="addGoal">+ NEW GOAL</button></div>`}
  if(view.level==='exercises'){let g=goal();h=`<button class="btn alt back">← GOALS</button><div class="card"><div class="crumb">GOAL</div><h1>${esc(g.name)}</h1><p>${esc(g.finished)}</p><h2>Exercises</h2>`;exs(g.id).forEach(e=>h+=`<div class="item"><div class="row"><div class="grow title">${esc(e.name)}</div><button class="btn openExercise" data-id="${e.id}">OPEN</button></div>${buttons('exercises',e.id)}</div>`);h+=`<button class="btn wide" id="addExercise">+ ADD EXERCISE</button></div>`}
- if(view.level==='components'){let g=goal(),e=exercise();h=`<button class="btn alt back">← ${esc(g.name)}</button><div class="card"><div class="crumb">${esc(g.name)} → EXERCISE</div><h1>${esc(e.name)}</h1><h2>Components / Dimensions</h2>`;comps(e.id).forEach(c=>{let st=steps(c.id).find(x=>x.id===c.currentStepId);h+=`<div class="item"><div class="row"><div class="grow"><div class="title">${esc(c.name)}</div><div class="mini">${st?'Current: '+esc(st.name):'No steps yet'}</div></div><button class="btn openComponent" data-id="${c.id}">OPEN</button></div>${buttons('components',c.id)}</div>`});h+=`<button class="btn wide" id="addComponent">+ ADD COMPONENT</button></div>`}
- if(view.level==='steps'){let g=goal(),e=exercise(),c=component();h=`<button class="btn alt back">← ${esc(e.name)}</button><div class="card"><div class="crumb">${esc(g.name)} → ${esc(e.name)} → COMPONENT</div><h1>${esc(c.name)}</h1><h2>Progression</h2>`;steps(c.id).forEach(st=>h+=`<div class="item"><div class="title">${esc(st.name)}${c.currentStepId===st.id?'<span class="pill">CURRENT</span>':''}</div><div class="mini">${esc(st.criterion)}</div><div class="row"><button class="btn current" data-id="${st.id}">SET CURRENT</button>${buttons('steps',st.id)}</div></div>`);h+=`<button class="btn wide" id="addStep">+ ADD STEP</button></div>`}
+ if(view.level==='components'){let g=goal(),e=exercise();h=`<button class="btn alt back">← ${esc(g.name)}</button><div class="card"><div class="crumb">${esc(g.name)} → EXERCISE</div><h1>${esc(e.name)}</h1><div class="mini"><b>OVERALL EXERCISE FINISHED PICTURE</b><br>${esc(e.finishedPicture||'Not defined yet.')}</div><div class="row" style="margin-top:12px"><button class="btn alt edit" data-type="exercises" data-id="${e.id}">EDIT FINISHED PICTURE</button><button class="btn alt suggestions" data-kind="exercise" data-id="${e.id}">GET SUGGESTIONS</button></div><h2>Components / Dimensions</h2>`;comps(e.id).forEach(c=>{let st=steps(c.id).find(x=>x.id===c.currentStepId);h+=`<div class="item"><div class="row"><div class="grow"><div class="title">${esc(c.name)}</div><div class="mini">${esc(c.finishedPicture||'Finished picture not defined')}</div><div class="mini">${st?'Current: '+esc(st.name):'No steps yet'}</div></div><button class="btn openComponent" data-id="${c.id}">OPEN</button></div>${buttons('components',c.id)}</div>`});h+=`<button class="btn wide" id="addComponent">+ ADD COMPONENT</button></div>`}
+ if(view.level==='steps'){let g=goal(),e=exercise(),c=component();h=`<button class="btn alt back">← ${esc(e.name)}</button><div class="card"><div class="crumb">${esc(g.name)} → ${esc(e.name)} → COMPONENT</div><h1>${esc(c.name)}</h1><div class="mini"><b>COMPONENT FINISHED PICTURE</b><br>${esc(c.finishedPicture||'Not defined yet.')}</div><div class="row" style="margin-top:12px"><button class="btn alt edit" data-type="components" data-id="${c.id}">EDIT FINISHED PICTURE</button><button class="btn alt suggestions" data-kind="component" data-id="${c.id}">GET SUGGESTIONS</button></div><h2>Progression</h2>`;steps(c.id).forEach(st=>h+=`<div class="item"><div class="title">${esc(st.name)}${c.currentStepId===st.id?'<span class="pill">CURRENT</span>':''}</div><div class="mini">${esc(st.criterion)}</div><div class="row"><button class="btn current" data-id="${st.id}">SET CURRENT</button>${buttons('steps',st.id)}</div></div>`);h+=`<button class="btn wide" id="addStep">+ ADD STEP</button></div>`}
  $('browser').innerHTML=h
 }
 $('openTA').onclick=()=>{show('ta');view={level:'goals',goalId:null,exerciseId:null,componentId:null};render()}
@@ -78,6 +104,7 @@ document.addEventListener('click',e=>{
  if(b.classList.contains('openGoal')){view={level:'exercises',goalId:b.dataset.id,exerciseId:null,componentId:null};return render()}
  if(b.classList.contains('openExercise')){view={level:'components',goalId:view.goalId,exerciseId:b.dataset.id,componentId:null};return render()}
  if(b.classList.contains('openComponent')){view={level:'steps',goalId:view.goalId,exerciseId:view.exerciseId,componentId:b.dataset.id};return render()}
+ if(b.classList.contains('suggestions'))return showSuggestions(b.dataset.kind,b.dataset.id);
  if(b.classList.contains('edit'))return edit(b.dataset.type,b.dataset.id);
  if(b.classList.contains('delete'))return del(b.dataset.type,b.dataset.id);
  if(b.classList.contains('current'))return setCurrent(b.dataset.id);
