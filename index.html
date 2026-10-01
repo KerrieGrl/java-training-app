@@ -66,6 +66,23 @@ button,.btn,.linkish,.navbtn{-webkit-appearance:none;appearance:none;touch-actio
   #planScreen .capacityRow select{font-size:12px;padding-left:4px;padding-right:4px}
 }
 
+/* INDEX 17 GENERATED WEEK */
+#planScreen .planSummary,#planScreen .dontLose{background:#f8dce6;border:1px solid #d993aa;border-radius:16px;padding:15px;margin:12px 0;color:#652239}
+#planScreen .planSummary h3,#planScreen .dontLose h3{font:800 18px Georgia,serif;margin:0 0 7px}
+#planScreen .planSummary p,#planScreen .dontLose p{margin:0;line-height:1.42;font-size:13px}
+#planScreen .planStats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}
+#planScreen .planStat{background:rgba(255,255,255,.55);border-radius:10px;padding:9px 4px;text-align:center}
+#planScreen .planStat b{display:block;font-size:20px}.planStat small{font-size:9px;font-weight:900}
+#planScreen .loseItem{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid rgba(116,37,63,.18)}
+#planScreen .loseItem b{font-size:12px}.loseItem span{font-size:11px;font-weight:900;white-space:nowrap}
+#planScreen .weekDayCard{background:#fbf6e7;border:1px solid #c9bea6;border-radius:14px;padding:13px;margin:10px 0}
+#planScreen .weekDayHead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px}
+#planScreen .weekDayHead b{font:800 18px Georgia,serif}.weekDayHead span{font-size:10px;color:#777064;font-weight:800}
+#planScreen .plannedItem{background:#fffaf0;border:1px solid #d8cdb8;border-radius:11px;padding:10px;margin-top:7px}
+#planScreen .plannedItem b{display:block;color:#174a35;font-size:14px}.plannedItem small{display:block;color:#6f685c;margin-top:3px}
+#planScreen .emptySlot{border:1px dashed #cbbfa8;border-radius:10px;padding:9px;text-align:center;color:#8a8172;font-size:12px;margin-top:7px}
+#planScreen .planSecondary{width:100%;border:1px solid #174a35;background:#fffaf0;color:#174a35;border-radius:11px;padding:12px;font-weight:900;margin-top:8px}
+
 </style>
 </head>
 <body>
@@ -158,11 +175,63 @@ function planDays(){
  return Array.from({length:7},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);const key=planDateKey(d),saved=setup.days[key]||{};
  return {key,date:d,sessions:Number(saved.sessions??(i===0?2:1)),availability:saved.availability||'Available'} })
 }
+
+function planComponentRows(){
+ const now=new Date(),wk=weekStart(),rows=[];
+ (state.exercises||[]).forEach(e=>{
+  if(['Parked','Complete'].includes(e.status))return;
+  (e.components||[]).forEach(c=>{
+   if(['Parked','Complete'].includes(c.status))return;
+   const ss=(state.sessions||[]).filter(s=>s.exerciseId===e.id&&s.componentId===c.id).sort((a,b)=>new Date(b.startedAt||b.sessionDate||0)-new Date(a.startedAt||a.sessionDate||0));
+   const ld=ss[0]?new Date(ss[0].startedAt||ss[0].sessionDate):null;
+   const days=ld&&isFinite(ld)?Math.max(0,Math.floor((now-ld)/86400000)):999;
+   const r21=ss.filter(s=>{const d=new Date(s.startedAt||s.sessionDate||0);return isFinite(d)&&(now-d)/86400000<=21}).length;
+   const tw=ss.filter(s=>{const d=new Date(s.startedAt||s.sessionDate||0);return isFinite(d)&&d>=wk}).length;
+   const freq=Number(c.desiredFrequency||c.frequency||c.weeklyTarget||c.targetPerWeek||0)||0;
+   const high=(c.priority||e.priority)==='High',building=(c.status||e.status)==='Building';
+   const score=(days===999?42:Math.min(days,42))*2+(high?22:0)+(building?8:0)+freq*7-r21*5-tw*8;
+   rows.push({e,c,days,freq,score});
+  });
+ });
+ return rows.sort((a,b)=>b.score-a.score||String(a.e.name).localeCompare(String(b.e.name))||String(a.c.name).localeCompare(String(b.c.name)))
+}
+function buildGeneratedWeek(){
+ const days=planDays(),cap=days.reduce((n,d)=>n+d.sessions,0),rows=planComponentRows();
+ const p={createdAt:new Date().toISOString(),weekLabel:planWeekLabel(),days:{},summary:{capacity:cap,desired:rows.reduce((n,r)=>n+r.freq,0)}};
+ days.forEach(d=>p.days[d.key]=[]);
+ if(cap&&rows.length){
+  const pool=[];rows.forEach(r=>{for(let i=0;i<Math.max(1,r.freq||1);i++)pool.push({...r,slotScore:r.score-i*18})});pool.sort((a,b)=>b.slotScore-a.slotScore);
+  const slots=[];days.forEach(d=>{for(let i=0;i<d.sessions;i++)slots.push({d,used:false})});
+  pool.slice(0,cap).forEach((r,ix)=>{let bi=-1,bp=1e9;slots.forEach((s,j)=>{if(s.used)return;const a=p.days[s.d.key],same=a.some(x=>x.exerciseId===r.e.id&&x.componentId===r.c.id),pen=(same?100:0)+a.length*4+Math.abs(j-ix);if(pen<bp){bp=pen;bi=j}});if(bi<0)return;const s=slots[bi];s.used=true;p.days[s.d.key].push({exerciseId:r.e.id,componentId:r.c.id,exerciseName:r.e.name,componentName:r.c.name,days:r.days,freq:r.freq})})
+ }
+ state.weeklyPlan.generated=p;save();return p
+}
+function generatedPlan(){return state.weeklyPlan?.generated||null}
+function neglectRows(){return planComponentRows().filter(r=>r.days===999||r.days>=14).slice(0,6)}
+function planReason(p){
+ const n=neglectRows(),top=n[0];
+ if(!p.summary.capacity)return `You set zero training opportunities this week, so FIELDWORK did not force work into the plan.`;
+ if(top)return `${esc(top.e.name)} → ${esc(top.c.name)} has ${top.days===999?'no recorded session yet':`gone ${top.days} days without a recorded session`}. FIELDWORK gives neglected work extra weight while balancing the rest of the curriculum.`;
+ if(p.summary.desired>p.summary.capacity)return `You have ${p.summary.capacity} training opportunities and more desired work than that. FIELDWORK selected a balanced subset instead of treating every desired frequency as mandatory.`;
+ return `FIELDWORK used recent training, time since trained, desired frequency, status, priority, and curriculum balance to spread work across the opportunities you gave it.`
+}
+function renderGeneratedWeek(el){
+ const p=generatedPlan()||buildGeneratedWeek(),days=planDays(),neg=neglectRows(),assigned=Object.values(p.days||{}).reduce((n,a)=>n+a.length,0);
+ el.innerHTML=`<button class="planBack" onclick="backFromGeneratedPlan()">‹ Set Up This Week</button><div class="planBrand" style="margin-top:-22px">🐕 FIELDWORK</div><div class="planPaper"><h1 class="planTitle">This Week</h1><div class="planLead">${esc(p.weekLabel||planWeekLabel())}</div>
+ <div class="planSummary"><h3>FIELDWORK PLAN SUMMARY</h3><p>${planReason(p)}</p><div class="planStats"><div class="planStat"><b>${p.summary.capacity}</b><small>AVAILABLE SLOTS</small></div><div class="planStat"><b>${assigned}</b><small>PLANNED</small></div><div class="planStat"><b>${p.summary.desired}</b><small>DESIRED / WK</small></div></div></div>
+ ${neg.length?`<div class="dontLose"><h3>DON'T LOSE THESE</h3><p>Active components that have been quiet long enough to deserve attention.</p>${neg.map(r=>`<div class="loseItem"><b>${esc(r.e.name)} → ${esc(r.c.name)}</b><span>${r.days===999?'NO RECORDED SESSION':r.days+' DAYS'}</span></div>`).join('')}</div>`:''}
+ ${days.map(d=>{const a=p.days[d.key]||[];return `<div class="weekDayCard"><div class="weekDayHead"><b>${d.date.toLocaleDateString(undefined,{weekday:'long'})}</b><span>${d.sessions} ${d.sessions===1?'SLOT':'SLOTS'} · ${esc(d.availability)}</span></div>${a.map(x=>`<div class="plannedItem"><b>${esc(x.exerciseName)} → ${esc(x.componentName)}</b><small>${x.days===999?'No recorded session yet':x.days===0?'Trained today':'Last trained '+x.days+' days ago'}${x.freq?' · desired '+x.freq+'/week':''}</small></div>`).join('')}${a.length<d.sessions?Array.from({length:d.sessions-a.length},()=>`<div class="emptySlot">Open training opportunity</div>`).join(''):''}${d.sessions===0?`<div class="emptySlot">No training planned</div>`:''}</div>`}).join('')}
+ <button class="planSecondary" onclick="regenerateWeek()">↻ REGENERATE FROM CURRENT DATA</button></div>`
+}
+function generateWeekNow(){const s=planSetup();s.notes=document.getElementById('planWeekNotes')?.value||'';save();buildGeneratedWeek();nav.plan.view='generated';renderPlan();window.scrollTo(0,0)}
+function regenerateWeek(){buildGeneratedWeek();renderPlan();toast('Week regenerated from current FIELDWORK data ✓')}
+function backFromGeneratedPlan(){nav.plan.view='setup';renderPlan();window.scrollTo(0,0)}
+
 function renderPlan(){
  ensurePlanWeek();
  nav.plan=nav.plan||{view:'home',weekOffset:0};
  const el=document.getElementById('planScreen');
- if(nav.plan.view==='setup'){renderPlanSetup(el);return}
+ if(nav.plan.view==='setup'){renderPlanSetup(el);return}if(nav.plan.view==='generated'){renderGeneratedWeek(el);return}
  const hasSetup=Object.keys(planSetup().days||{}).length>0;
  el.innerHTML=`<div class="planBrand">🐕 FIELDWORK</div>
  <div class="planPaper">
@@ -171,7 +240,7 @@ function renderPlan(){
    <button class="planPrimary" onclick="openPlanSetup()">▣ &nbsp; BUILD MY WEEK</button>
  </div>
  <div class="planMenu">
-   <button class="planMenuBtn" onclick="openPlanSetup()"><span class="planMenuIcon">◷</span><span><b>Current Week Plan</b><small>${esc(planWeekLabel())}${hasSetup?' · availability saved':''}</small></span><span class="planArrow">›</span></button>
+   <button class="planMenuBtn" onclick="${generatedPlan()?"nav.plan.view='generated';renderPlan()":"openPlanSetup()"}"><span class="planMenuIcon">◷</span><span><b>Current Week Plan</b><small>${esc(planWeekLabel())}${hasSetup?' · availability saved':''}</small></span><span class="planArrow">›</span></button>
    <button class="planMenuBtn" onclick="toast('Long-term neglect intelligence comes with the generated-week build.')"><span class="planMenuIcon">⚠</span><span><b>Don't Lose These</b><small>Components needing attention across weeks</small></span><span class="planArrow">›</span></button>
    <button class="planMenuBtn" onclick="toast('Week History comes after weekly generation is locked.')"><span class="planMenuIcon">▥</span><span><b>Week History</b><small>View past plans and coverage</small></span><span class="planArrow">›</span></button>
    <button class="planMenuBtn" onclick="toast('Planning preferences will live here.')"><span class="planMenuIcon">⚙</span><span><b>Settings</b><small>Planning preferences</small></span><span class="planArrow">›</span></button>
@@ -195,7 +264,7 @@ function renderPlanSetup(el){
    </div>`).join('')}
    <div class="setupTotal"><span>Training capacity this week</span><b>${total}</b></div>
    <div class="field" style="margin-bottom:16px"><label style="color:#5f594e">SPECIAL NOTES (OPTIONAL)</label><textarea class="setupNote" id="planWeekNotes" placeholder="Anything FIELDWORK should know about this week...">${esc(planSetup().notes||'')}</textarea></div>
-   <button class="planPrimary" onclick="savePlanSetup()">✦ &nbsp; SAVE WEEK SETUP</button>
+   <button class="planPrimary" onclick="generateWeekNow()">✦ &nbsp; BUILD MY WEEK</button>
  </div>`
 }
 function setPlanDay(key,field,value){
