@@ -272,31 +272,43 @@ function foodPlanningRows(){return planComponentRows().filter(r=>r.c.foodTrainin
 function addFoodTrainingToWeek(p,days){
  const perDay=Math.max(0,Number(state.settings?.foodTrainingPerDay??2)),foodRows=foodPlanningRows();
  if(!perDay||!foodRows.length)return;
- const foodCounts=new Map();
- days.forEach(d=>{
-  const regularKeys=new Set((p.days[d.key]||[]).filter(x=>!x.foodTraining).map(x=>x.exerciseId+'|'+x.componentId));
+ const foodCounts=new Map(),plannedDays=new Map();
+ // Existing manual/locked assignments in EITHER lane count as real planned exposure for spacing.
+ days.forEach((d,di)=>(p.days[d.key]||[]).forEach(x=>{
+  const key=x.exerciseId+'|'+x.componentId;
+  if(!plannedDays.has(key))plannedDays.set(key,[]);
+  plannedDays.get(key).push(di);
+  if(x.foodTraining)foodCounts.set(key,(foodCounts.get(key)||0)+1)
+ }));
+ days.forEach((d,di)=>{
   const dayFood=new Set((p.days[d.key]||[]).filter(x=>x.foodTraining).map(x=>x.exerciseId+'|'+x.componentId));
-  for(let slot=0;slot<perDay;slot++){
+  const existingFood=(p.days[d.key]||[]).filter(x=>x.foodTraining).length;
+  for(let slot=existingFood;slot<perDay;slot++){
    const choices=foodRows.filter(r=>!dayFood.has(r.e.id+'|'+r.c.id)).map(r=>{
-    const key=r.e.id+'|'+r.c.id,count=foodCounts.get(key)||0;
+    const key=r.e.id+'|'+r.c.id,count=foodCounts.get(key)||0,exposures=plannedDays.get(key)||[];
     const recentPenalty=r.tw*18+r.r21*4;
-    const regularToday=regularKeys.has(key)?35:0;
-    // Same planning hierarchy as the weekly engine, but rotate meal work aggressively so habit does not pick the same exercises every day.
-    const foodScore=r.lane+r.goalWeight*10+Math.min(r.days===999?42:r.days,42)*2-count*70-recentPenalty-regularToday;
-    return {r,key,foodScore,count}
+    let spacingPenalty=0;
+    if(exposures.length){
+     const minGap=Math.min(...exposures.map(x=>Math.abs(di-x)));
+     spacingPenalty=minGap===0?1000:minGap===1?220:minGap===2?65:minGap===3?20:0;
+    }
+    // Food work stays in its own lane, but all planned exposures influence spacing.
+    const foodScore=r.lane+r.goalWeight*10+Math.min(r.days===999?42:r.days,42)*2-count*70-recentPenalty-spacingPenalty;
+    return {r,key,foodScore,count,spacingPenalty}
    }).sort((a,b)=>b.r.lane-a.r.lane||b.foodScore-a.foodScore||a.count-b.count||b.r.score-a.r.score);
    const pick=choices[0];if(!pick)break;
    const r=pick.r;dayFood.add(pick.key);foodCounts.set(pick.key,pick.count+1);
+   if(!plannedDays.has(pick.key))plannedDays.set(pick.key,[]);plannedDays.get(pick.key).push(di);
    p.days[d.key].push({exerciseId:r.e.id,componentId:r.c.id,exerciseName:r.e.name,componentName:r.c.name,days:r.days,freq:r.freq,manual:false,locked:false,handler:'Kerrie',foodTraining:true});
   }
  })
 }
 function buildGeneratedWeek(){
- const days=planDays(),cap=days.reduce((n,d)=>n+d.sessions,0),rows=planComponentRows(),old=generatedPlan();
+ const days=planDays(),cap=days.reduce((n,d)=>n+d.sessions,0),rows=planComponentRows().filter(r=>!(r.c.foodTraining||r.e.foodTraining)),old=generatedPlan();
  const p={createdAt:new Date().toISOString(),weekLabel:planWeekLabel(),days:{},summary:{capacity:cap,desired:rows.reduce((n,r)=>n+r.freq,0)},finalized:false};
  days.forEach(d=>p.days[d.key]=[]);
  // Manual choices and locks are deliberate edits. Regeneration keeps them exactly where Kerrie put them.
- if(old?.days){days.forEach(d=>{const keep=(old.days[d.key]||[]).filter(x=>x.locked||x.manual).map(x=>({...x}));p.days[d.key]=keep})}
+ if(old?.days){days.forEach(d=>{const keep=(old.days[d.key]||[]).filter(x=>x.locked||x.manual).map(x=>{const y={...x},e=(state.exercises||[]).find(z=>z.id===y.exerciseId),c=e?.components?.find(z=>z.id===y.componentId);if(c&&(c.foodTraining||e?.foodTraining))y.foodTraining=true;return y});p.days[d.key]=keep})}
  const used=Object.values(p.days).reduce((n,a)=>n+a.filter(x=>!x.foodTraining).length,0),remaining=Math.max(0,cap-used);
  if(remaining&&rows.length){
   const scheduledCounts=new Map(),exerciseCounts=new Map(),dayExerciseCounts=new Map();
