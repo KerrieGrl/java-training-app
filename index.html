@@ -321,11 +321,21 @@ function buildGeneratedWeek(){
     const ac=scheduledCounts.get(a.e.id+'|'+a.c.id)||0,bc=scheduledCounts.get(b.e.id+'|'+b.c.id)||0;
     return b.lane-a.lane||b.goalWeight-a.goalWeight||(b.score-bc*30)-(a.score-ac*30)
    })[0];
-   // Place it on the day that best spreads this exercise across the week while respecting available capacity.
+   // Place repeated work with useful spacing. Same-component repeats should not bunch on consecutive days by default.
+   const componentKey=r.e.id+'|'+r.c.id;
+   const plannedDayIndexes=[];
+   days.forEach((pd,di)=>{if((p.days[pd.key]||[]).some(x=>!x.foodTraining&&(x.exerciseId+'|'+x.componentId)===componentKey))plannedDayIndexes.push(di)});
    let bi=0,bp=1e9;openSlots.forEach((d,j)=>{
+    const dayIndex=days.findIndex(pd=>pd.key===d.key);
     const sameDay=dayExerciseCounts.get(d.key+'|'+r.e.id)||0;
-    const dayLoad=p.days[d.key].length;
-    const pen=sameDay*70+dayLoad*8+j*.01;
+    const dayLoad=p.days[d.key].filter(x=>!x.foodTraining).length;
+    let repeatPenalty=0;
+    if(plannedDayIndexes.length){
+     const minGap=Math.min(...plannedDayIndexes.map(di=>Math.abs(dayIndex-di)));
+     // Same day is effectively blocked; adjacent days are strongly discouraged; wider gaps are preferred.
+     repeatPenalty=minGap===0?1000:minGap===1?180:minGap===2?55:minGap===3?18:0;
+    }
+    const pen=repeatPenalty+sameDay*70+dayLoad*8+j*.01;
     if(pen<bp){bp=pen;bi=j}
    });
    const d=openSlots.splice(bi,1)[0];
