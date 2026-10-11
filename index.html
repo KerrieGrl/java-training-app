@@ -612,7 +612,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 44</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 45</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
  <div class="card"><h3>Your training curriculum is separate</h3><p class="muted">Your goals, exercises, components, progressions and step instructions are not changed by this Library cleanup.</p></div>`;
@@ -855,25 +855,77 @@ function heelSavedRemoveLast(){const ed=heelSavedEditor;if(!ed)return;const x=st
 function heelAll(e,c){return (state.sessions||[]).filter(x=>x.exerciseId===e.id&&(!c||x.componentId===c.id)).flatMap(x=>(x.heelReps||[]).map((r,i)=>({...r,_session:x.sessionDate||x.savedAt||x.date||'',_component:x.componentId,_rep:i+1})))}
 let heelLabFilters={field:'upper',metric:'target',range:'all',value:'all',scope:'component'};
 function heelLabSet(k,v){heelLabFilters[k]=v;if(k==='field')heelLabFilters.value='all';renderProgress()}
-let fwPairFilters={a:'',av:'',b:'',bv:''};
-function fwPairChange(k,v){fwPairFilters[k]=v;if(k==='a')fwPairFilters.av='';if(k==='b')fwPairFilters.bv='';renderProgress()}
+let fwPairFilters={scope:'sessions',range:'all',a:'',av:'',b:'',bv:''};
+function fwPairChange(k,v){
+ fwPairFilters[k]=v;
+ if(k==='a')fwPairFilters.av='';
+ if(k==='b')fwPairFilters.bv='';
+ renderProgress();
+}
 function fwPairLab(e,c){
- const all=state.sessions.filter(s=>s.exerciseId===e.id&&s.componentId===c.id).flatMap(s=>s.fwObservationReps||[]);
- const catalog=fwMeasurementCatalog(),ids=[...new Set(all.flatMap(r=>Object.keys(r.values||{})))];
- const options=ids.map(id=>catalog.find(x=>x.id===id)||{id,category:'Archived observation '+id,choices:[...new Set(all.map(r=>r.values?.[id]).filter(Boolean))]});
- const f=fwPairFilters;
- const field=(key)=>`<select style="width:100%" onchange="fwPairChange('${key}',this.value)"><option value="">Choose observation...</option>${options.map(x=>`<option value="${esc(x.id)}" ${f[key]===x.id?'selected':''}>${esc((x.subject==='handler'?'Handler · ':'Java · ')+(x.category||x.name))}</option>`).join('')}</select>`;
- const value=(key,id)=>{const x=options.find(o=>o.id===id),vals=[...new Set([...(x?.choices||[]),...all.map(r=>r.values?.[id]).filter(Boolean)])];return `<select style="width:100%" onchange="fwPairChange('${key}',this.value)"><option value="">Choose answer...</option>${vals.map(v=>`<option value="${esc(v)}" ${f[key]===v?'selected':''}>${esc(v)}</option>`).join('')}</select>`};
+ const f=fwPairFilters,catalog=fwMeasurementCatalog();
+ const dated=(state.sessions||[]).filter(s=>s.exerciseId===e.id&&s.componentId===c.id).map(s=>({s,date:s.sessionDate||String(s.savedAt||s.startedAt||'').slice(0,10)}));
+ const cutoff=f.range==='all'?'':localDateKey(new Date(Date.now()-Number(f.range)*86400000));
+ const sessions=dated.filter(z=>!cutoff||(z.date&&z.date>=cutoff));
+ // Each overall session contributes at most one answer per observation.
+ // A session with contradictory answers to the same category is excluded for that category.
+ const sessionRows=sessions.map(({s,date})=>{
+  const groups={};
+  (s.unifiedObservations||[]).forEach(o=>{
+   const subject=o.subject==='handler'?'handler':'dog';
+   const matched=o.catalogId?catalog.find(x=>x.id===o.catalogId):catalog.filter(x=>x.subject===subject&&(x.category||x.name)===o.category);
+   const x=Array.isArray(matched)?matched.length===1?matched[0]:null:matched;
+   if(!x)return;
+   (groups[x.id]||(groups[x.id]=new Set())).add(o.name);
+  });
+  const values={};
+  Object.entries(groups).forEach(([id,answers])=>{if(answers.size===1)values[id]=[...answers][0]});
+  return {date,values};
+ });
+ const repRows=sessions.flatMap(({s,date})=>(s.fwObservationReps||[]).map(r=>({date,values:r.values||{}})));
+ const all=f.scope==='reps'?repRows:sessionRows;
+ const ids=[...new Set(all.flatMap(r=>Object.keys(r.values)))];
+ const options=ids.map(id=>catalog.find(x=>x.id===id)||{id,subject:'dog',category:'Archived observation',choices:[]});
+ const optionLabel=x=>(x.subject==='handler'?'Handler · ':'Java · ')+(x.category||x.name);
+ const field=key=>`<select style="width:100%;padding:10px" onchange="fwPairChange('${key}',this.value)"><option value="">Choose observation...</option>${options.map(x=>`<option value="${esc(x.id)}" ${f[key]===x.id?'selected':''}>${esc(optionLabel(x))}</option>`).join('')}</select>`;
+ const value=(key,id)=>{
+  const x=options.find(o=>o.id===id);
+  const vals=[...new Set([...(x?.choices||[]),...all.map(r=>r.values[id]).filter(Boolean)])];
+  return `<select style="width:100%;padding:10px;margin-top:7px" onchange="fwPairChange('${key}',this.value)"><option value="">Choose answer...</option>${vals.map(v=>`<option value="${esc(v)}" ${f[key]===v?'selected':''}>${esc(v)}</option>`).join('')}</select>`;
+ };
  const ready=f.a&&f.b&&f.a!==f.b&&f.av&&f.bv;
- const joint=all.filter(r=>r.values?.[f.a]&&r.values?.[f.b]);
- const matched=joint.filter(r=>r.values[f.a]===f.av&&r.values[f.b]===f.bv);
- const base=joint.filter(r=>r.values[f.a]===f.av);
- return `<div class="pCard" style="border:2px solid #e59aba;background:#fff7fb"><div class="pHead">🩷 REPRODUCIBILITY · TWO OBSERVATIONS</div><p class="tiny muted">Compare answers recorded on the SAME attempt. This shows associations, not causes. Missing answers are excluded; session Coffee is separate.</p>
+ const joint=ready?all.filter(r=>r.values[f.a]&&r.values[f.b]):[];
+ const first=joint.filter(r=>r.values[f.a]===f.av);
+ const second=joint.filter(r=>r.values[f.b]===f.bv);
+ const both=first.filter(r=>r.values[f.b]===f.bv);
+ const rate=(n,d)=>d?Math.round(100*n/d)+'%':'Not enough data';
+ const noun=f.scope==='reps'?'reps':'sessions';
+ const byDate=ready?[...new Set(joint.map(r=>r.date))].sort().map(date=>{
+  const rows=joint.filter(r=>r.date===date);
+  return {date,n:rows.length,both:rows.filter(r=>r.values[f.a]===f.av&&r.values[f.b]===f.bv).length};
+ }):[];
+ return `<div class="pCard" style="border:2px solid #e59aba;background:#fff7fb">
+ <div class="pHead">🩷 REPRODUCIBILITY · OVER TIME</div>
+ <p class="tiny muted">Find relationships between what you do and what Java does across training dates. Overall Session observations are the default. Individual reps are optional.</p>
+ <div class="field"><label>COMPARE USING</label><select style="width:100%;padding:10px" onchange="fwPairChange('scope',this.value)"><option value="sessions" ${f.scope==='sessions'?'selected':''}>Across Sessions (default)</option><option value="reps" ${f.scope==='reps'?'selected':''}>Across Reps (optional)</option></select></div>
+ <div class="field"><label>TIME RANGE</label><select style="width:100%;padding:10px" onchange="fwPairChange('range',this.value)">${[['all','All history'],['30','Last 30 days'],['90','Last 90 days'],['180','Last 180 days'],['365','Last year']].map(([v,label])=>`<option value="${v}" ${f.range===v?'selected':''}>${label}</option>`).join('')}</select></div>
  <div class="field"><label>FIRST OBSERVATION</label>${field('a')}${f.a?value('av',f.a):''}</div>
  <div class="field"><label>SECOND OBSERVATION</label>${field('b')}${f.b?value('bv',f.b):''}</div>
- ${ready?`<div class="card"><b>${matched.length} of ${joint.length} jointly recorded attempts</b><p class="tiny muted">Both selected answers occurred together in ${joint.length?Math.round(100*matched.length/joint.length):0}% of attempts with both observations recorded.</p><b>${matched.length} of ${base.length} attempts</b><p class="tiny muted">When the first selected answer occurred, the second selected answer also occurred ${base.length?Math.round(100*matched.length/base.length):0}% of the time.</p></div>`:'<p class="tiny muted">Choose two different observations and one answer for each.</p>'}
- <p class="tiny muted">${all.length} recorded attempts for this component. The earlier Heeling-specific records are preserved but are not counted here; new observations entered together feed this comparison.</p></div>`;
+ ${ready?`<div class="card">
+ <b>${both.length} of ${joint.length} ${noun} with both observations recorded</b>
+ <p class="tiny muted">Both chosen answers occurred together in ${rate(both.length,joint.length)} of jointly recorded ${noun}.</p>
+ <b>When ${esc(f.av)} occurred:</b>
+ <p class="tiny muted">${esc(f.bv)} also occurred in ${both.length} of ${first.length} ${noun} (${rate(both.length,first.length)}).</p>
+ <b>When ${esc(f.av)} did not occur:</b>
+ <p class="tiny muted">${esc(f.bv)} occurred in ${second.length-both.length} of ${joint.length-first.length} ${noun} (${rate(second.length-both.length,joint.length-first.length)}).</p>
+ ${joint.length<5?'<p class="tiny muted"><b>Early data:</b> Fewer than five paired records. Keep recording before interpreting a pattern.</p>':''}
+ </div><div class="card"><b>Across training dates</b>
+ ${byDate.map(x=>`<div class="tiny" style="padding:7px 0;border-bottom:1px solid #efd4df">${esc(x.date||'Undated')} · ${x.both}/${x.n} matching ${noun}</div>`).join('')||'<p class="tiny muted">No jointly recorded observations yet.</p>'}
+ </div>`:'<p class="tiny muted">Choose two different observations and their answers to see relationships over time.</p>'}
+ <p class="tiny muted">${all.length} ${noun} available for this component in the selected time range. Only records containing BOTH observations count toward comparisons. Session Coffee and progression are not changed. These are associations, not proof of cause.</p>
+ </div>`;
 }
+
 function heelLab(e,c){const f=heelLabFilters;if(!heelDefinitions().some(v=>v.id===f.field))f.field='upper';const all=heelAll(e,f.scope==='exercise'?null:c),now=Date.now(),reps=all.filter(r=>{const t=Date.parse(r._session);return f.range==='all'||(Number.isFinite(t)&&now-t<Number(f.range)*86400000)}),opts=heelDefinitions(true).find(x=>x.id===f.field)?.archivedOptions||[],filtered=reps.filter(r=>f.value==='all'||(Array.isArray(r[f.field])?r[f.field].includes(f.value):r[f.field]===f.value));
 const assessed=(r)=>['Target','Partial','Compressed'].includes(r.emotion),rearAssessed=(r)=>['Acceptable','Out','Over-tucked'].includes(r.rear),ok=(r)=>f.metric==='rearOut'?r.rear==='Out':f.metric==='rearAcceptable'?r.rear==='Acceptable':f.metric==='targetRearOut'?r.emotion==='Target'&&r.rear==='Out':f.metric==='precision'?r.emotion==='Target'&&r.rear==='Acceptable':f.metric==='first'?r.emotion==='Target'&&r.attempt==='First':f.metric==='transition'?r.transition==='Maintained target':r.emotion==='Target';
 const valid=r=>f.metric==='rearOut'||f.metric==='rearAcceptable'?rearAssessed(r):f.metric==='targetRearOut'||f.metric==='precision'?assessed(r)&&rearAssessed(r):f.metric==='first'?assessed(r)&&r.attempt&&r.attempt!=='Unknown':f.metric==='transition'?r.transition&&!['Unknown','Not tested'].includes(r.transition):assessed(r);
@@ -1044,7 +1096,7 @@ function fwObsSubject(v){syncSummaryFields();fwObsCapture();const s=nav.session;
 function fwObsChooseCategory(id){syncSummaryFields();const s=nav.session;s.fwObsCategoryId=id;const x=fwMeasurementCatalog().find(v=>v.id===id);s.fwObsCategory=x?.category||x?.name||'';s.fwObsName='';renderSummary()}
 function fwObsChooseAnswer(v){if(nav.session)nav.session.fwObsName=v}
 function fwObsTrend(v){syncSummaryFields();fwObsCapture();nav.session.fwObsTrend=v;renderSummary()}
-function fwAddUnified(){syncSummaryFields();fwObsCapture();const s=nav.session,name=(s.fwObsName||'').trim(),category=(s.fwObsCategory||'').trim();if(!name){alert('Enter what you observed first.');return}if(!category){alert('Choose or enter a category first.');return}const subject=s.fwObsSubject==='handler'?'handler':'dog',trend=s.fwObsTrend||'steady';s.unifiedObservations=s.unifiedObservations||[];s.unifiedObservations.push({subject,category,name,trend,detail:(s.fwObsDetail||'').trim(),recordedAt:new Date().toISOString()});
+function fwAddUnified(){syncSummaryFields();fwObsCapture();const s=nav.session,name=(s.fwObsName||'').trim(),category=(s.fwObsCategory||'').trim();if(!name){alert('Enter what you observed first.');return}if(!category){alert('Choose or enter a category first.');return}const subject=s.fwObsSubject==='handler'?'handler':'dog',trend=s.fwObsTrend||'steady';s.unifiedObservations=s.unifiedObservations||[];s.unifiedObservations.push({subject,category,name,catalogId:s.fwObsCategoryId||'',trend,detail:(s.fwObsDetail||'').trim(),recordedAt:new Date().toISOString()});
  // Existing Progress → Patterns uses these fields. Only clear directional judgments are bridged.
  const field=subject==='handler'?(trend==='improving'?'handlerHelped':trend==='declining'?'handlerHurt':null):(trend==='improving'?'trainingProgress':trend==='declining'?'trainingSetbacks':null);
  if(field){s[field]=s[field]||[];if(!s[field].includes(name))s[field].push(name)}
