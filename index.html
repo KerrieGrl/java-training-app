@@ -629,7 +629,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 50</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 51</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
  <div class="card"><h3>Your training curriculum is separate</h3><p class="muted">Your goals, exercises, components, progressions and step instructions are not changed by this Library cleanup.</p></div>`;
@@ -928,14 +928,14 @@ function fwDiscoverPairs(rows,catalog){
   if(i===j)continue;
   const a=ids[i],b=ids[j],ca=catalog.find(x=>x.id===a),cb=catalog.find(x=>x.id===b);
   if(!ca||!cb)continue;
-  const paired=rows.filter(r=>r.date&&/^\\d{4}-\\d{2}-\\d{2}$/.test(r.date)&&r.values[a]&&r.values[b]);
+  const paired=rows.filter(r=>r.date&&/^\\d{4}-\\d{2}-\\d{2}$/.test(r.date)&&fwHasObservation(r,a)&&fwHasObservation(r,b));
   if(paired.length<8||new Set(paired.map(r=>r.date)).size<3)continue;
-  const aValues=[...new Set(paired.map(r=>r.values[a]))],bValues=[...new Set(paired.map(r=>r.values[b]))];
+  const aValues=[...new Set(paired.flatMap(r=>fwAnswers(r.values[a])))],bValues=[...new Set(paired.flatMap(r=>fwAnswers(r.values[b])))];
   for(const av of aValues)for(const bv of bValues){
-   const yes=paired.filter(r=>r.values[a]===av),no=paired.filter(r=>r.values[a]!==av);
+   const yes=paired.filter(r=>fwHasAnswer(r,a,av)),no=paired.filter(r=>!fwHasAnswer(r,a,av));
    if(yes.length<3||no.length<3)continue;
    if(new Set(yes.map(r=>r.date)).size<2||new Set(no.map(r=>r.date)).size<2)continue;
-   const y=yes.filter(r=>r.values[b]===bv).length,n=no.filter(r=>r.values[b]===bv).length;
+   const y=yes.filter(r=>fwHasAnswer(r,b,bv)).length,n=no.filter(r=>fwHasAnswer(r,b,bv)).length;
    const r1=y/yes.length,r0=n/no.length,diff=Math.abs(r1-r0);
    if(diff<.25)continue;
    // Keep only the strongest direction for each observation-answer pairing.
@@ -946,6 +946,10 @@ function fwDiscoverPairs(rows,catalog){
  }
  return Object.values(counts).sort((x,y)=>y.diff-x.diff||y.paired-x.paired).slice(0,3);
 }
+function fwAnswers(v){return Array.isArray(v)?v.filter(x=>x!==undefined&&x!==null&&x!=='').map(String):(v===undefined||v===null||v==='')?[]:[String(v)]}
+function fwHasAnswer(row,id,answer){return fwAnswers(row.values?.[id]).includes(answer)}
+function fwHasObservation(row,id){return fwAnswers(row.values?.[id]).length>0}
+function fwRepEntries(values){return Object.entries(values||{}).flatMap(([id,v])=>fwAnswers(v).map(answer=>[id,answer]))}
 function fwPairLab(e,c){
  const f=fwPairFilters,catalog=fwMeasurementCatalog();
  const cutoff=f.range==='all'?'':localDateKey(new Date(Date.now()-Number(f.range)*86400000));
@@ -961,7 +965,7 @@ function fwPairLab(e,c){
    if(matched)(groups[matched.id]||(groups[matched.id]=[])).push(o.name);
   });
   const repGroups={};
-  (s.fwObservationReps||[]).forEach(r=>Object.entries(r.values||{}).forEach(([id,v])=>(repGroups[id]||(repGroups[id]=[])).push(v)));
+  (s.fwObservationReps||[]).forEach(r=>fwRepEntries(r.values).forEach(([id,v])=>(repGroups[id]||(repGroups[id]=[])).push(v)));
   const values={},distributions={};
   [...new Set([...Object.keys(groups),...Object.keys(repGroups)])].forEach(id=>{
    const manual=[...new Set(groups[id]||[])],rep=repGroups[id]||[];
@@ -969,10 +973,10 @@ function fwPairLab(e,c){
    if(manual.length>1){distributions[id]={source:'conflicting overall',counts:{},n:0};return}
    if(rep.length){
     const counts={};rep.forEach(v=>counts[v]=(counts[v]||0)+1);
-    const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    const ranked=Object.entries(counts).sort((a,b)=>b[1]-a[1]);const assessed=(s.fwObservationReps||[]).filter(r=>fwHasObservation(r,id)).length;
     // Only infer a single answer when it is a unique majority; ties remain ambiguous.
-    if(ranked.length===1||ranked[0][1]>rep.length/2)values[id]=ranked[0][0];
-    distributions[id]={source:'reps',counts,n:rep.length};
+    if(ranked.length===1||ranked[0][1]>assessed/2)values[id]=ranked[0][0];
+    distributions[id]={source:'reps',counts,n:assessed};
    }
   });
   return {date,values,distributions};
@@ -990,14 +994,14 @@ function fwPairLab(e,c){
  const options=ids.map(id=>catalog.find(x=>x.id===id)||{id,subject:'dog',category:'Archived observation',choices:[]});
  const label=x=>(x.subject==='handler'?'Handler · ':'Java · ')+(x.category||x.name);
  const field=key=>`<select style="width:100%;padding:12px;border-radius:12px" onchange="fwPairChange('${key}',this.value)"><option value="">Choose observation...</option>${options.map(x=>`<option value="${esc(x.id)}" ${f[key]===x.id?'selected':''}>${esc(label(x))}</option>`).join('')}</select>`;
- const value=(key,id)=>{const x=options.find(o=>o.id===id),vals=[...new Set([...(x?.choices||[]),...all.map(r=>r.values[id]).filter(Boolean)])];return `<select style="width:100%;padding:12px;border-radius:12px;margin-top:7px" onchange="fwPairChange('${key}',this.value)"><option value="">Choose answer...</option>${vals.map(v=>`<option value="${esc(v)}" ${f[key]===v?'selected':''}>${esc(v)}</option>`).join('')}</select>`};
+ const value=(key,id)=>{const x=options.find(o=>o.id===id),vals=[...new Set([...(x?.choices||[]),...all.flatMap(r=>fwAnswers(r.values[id]))])];return `<select style="width:100%;padding:12px;border-radius:12px;margin-top:7px" onchange="fwPairChange('${key}',this.value)"><option value="">Choose answer...</option>${vals.map(v=>`<option value="${esc(v)}" ${f[key]===v?'selected':''}>${esc(v)}</option>`).join('')}</select>`};
  const ready=f.a&&f.b&&f.a!==f.b&&f.av&&f.bv;
- const joint=ready?all.filter(r=>r.values[f.a]&&r.values[f.b]):[];
- const first=joint.filter(r=>r.values[f.a]===f.av),both=first.filter(r=>r.values[f.b]===f.bv);
- const without=joint.filter(r=>r.values[f.a]!==f.av),withoutBoth=without.filter(r=>r.values[f.b]===f.bv);
+ const joint=ready?all.filter(r=>fwHasObservation(r,f.a)&&fwHasObservation(r,f.b)):[];
+ const first=joint.filter(r=>fwHasAnswer(r,f.a,f.av)),both=first.filter(r=>fwHasAnswer(r,f.b,f.bv));
+ const without=joint.filter(r=>!fwHasAnswer(r,f.a,f.av)),withoutBoth=without.filter(r=>fwHasAnswer(r,f.b,f.bv));
  const rate=(n,d)=>d?Math.round(100*n/d):0,noun=f.scope==='reps'?'reps':'sessions';
  const pct=rate(both.length,first.length),otherPct=rate(withoutBoth.length,without.length);
- const byDate=ready?[...new Set(joint.map(r=>r.date))].sort().map(date=>{const rows=joint.filter(r=>r.date===date),n=rows.filter(r=>r.values[f.a]===f.av).length,k=rows.filter(r=>r.values[f.a]===f.av&&r.values[f.b]===f.bv).length;return {date,n,k}}):[];
+ const byDate=ready?[...new Set(joint.map(r=>r.date))].sort().map(date=>{const rows=joint.filter(r=>r.date===date),n=rows.filter(r=>fwHasAnswer(r,f.a,f.av)).length,k=rows.filter(r=>fwHasAnswer(r,f.a,f.av)&&fwHasAnswer(r,f.b,f.bv)).length;return {date,n,k}}):[];
  const donut=(num,den,color,caption)=>{const p=rate(num,den);return `<div style="text-align:center;flex:1;min-width:125px"><div style="width:135px;height:135px;margin:0 auto;border-radius:50%;background:conic-gradient(${color} ${p}%,#eedfe7 ${p}%);display:grid;place-items:center"><div style="width:98px;height:98px;border-radius:50%;background:#fff9fc;display:flex;align-items:center;justify-content:center;flex-direction:column"><b style="font-size:28px;color:#204d3b">${den?p+'%':'—'}</b><small style="color:#665e65">${num}/${den}</small></div></div><div style="font-weight:800;margin-top:10px;color:#204d3b">${caption}</div></div>`};
  const trend=byDate.filter(x=>x.n>0);
  const svg=trend.length>=2?(()=>{const w=340,h=150,pad=22,pts=trend.map((x,i)=>({x:pad+i*(w-2*pad)/(trend.length-1),y:h-pad-(x.k/x.n)*(h-2*pad)})),path=pts.map((p,i)=>(i?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1)).join(' ');return `<svg viewBox="0 0 340 150" role="img" aria-label="Matching observation percentage across training dates" style="width:100%;height:auto"><line x1="22" y1="128" x2="318" y2="128" stroke="#c8afbd"/><line x1="22" y1="22" x2="22" y2="128" stroke="#c8afbd"/><path d="${path}" fill="none" stroke="#d65b96" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="5" fill="#204d3b" stroke="#fff" stroke-width="2"/>`).join('')}<text x="22" y="16" font-size="11" fill="#6e6570">100%</text><text x="22" y="144" font-size="11" fill="#6e6570">0%</text></svg>`})():'<p class="tiny muted">The trend line will appear after matching observations are recorded on at least two different dates.</p>';
@@ -1123,7 +1127,7 @@ return `<div class="card" style="border:2px solid #e89bb9;background:#fff8fb"><d
 // Build 35: one assessment attached to an existing recorded measurement, not a second observation.
 function fwRecordedMeasurements(s){
  const rows=[];
- (s.fwObservationReps||[]).forEach((r,i)=>Object.entries(r.values||{}).forEach(([id,value])=>{
+ (s.fwObservationReps||[]).forEach((r,i)=>fwRepEntries(r.values).forEach(([id,value])=>{
   const x=fwMeasurementCatalog().find(z=>z.id===id);
   rows.push({id:'obsrep:'+(r.id||i)+':'+id,subject:x?.subject||'dog',category:x?.category||x?.name||'Observation',name:(x?.subject==='handler'?'Handler · ':'Java · ')+(x?.category||x?.name||'Observation'),value:String(value),source:'Attempt '+(i+1)});
  }));
@@ -1166,8 +1170,8 @@ function fwUnifiedObservations(s){
  const catalog=fwMeasurementCatalog().filter(x=>x.subject===subject&&x.active!==false&&fwMeasurementAssigned(x,s.exerciseId,s.componentId));
  const selected=catalog.find(x=>x.id===s.fwObsCategoryId);
  const reps=s.fwObservationReps||[],draft=s.fwRepDraft||{};
- const labels=Object.entries(draft).map(([id,v])=>{const x=fwMeasurementCatalog().find(z=>z.id===id);return `${x?.subject==='handler'?'Handler':'Java'} · ${x?.category||x?.name||'Observation'}: ${v}`});
- const saved=reps.map((r,i)=>`<details style="border-top:1px solid #efd1dd;padding:10px 0"><summary style="font-weight:800;cursor:pointer">Rep ${i+1} · ${Object.keys(r.values||{}).length} observations</summary><p class="tiny muted">${Object.entries(r.values||{}).map(([id,v])=>{const x=fwMeasurementCatalog().find(z=>z.id===id);return esc((x?.subject==='handler'?'Handler':'Java')+' · '+(x?.category||x?.name||'Observation')+': '+v)}).join(' · ')}</p><button class="btn small secondary" onclick="fwEditRecordRep(${i})">EDIT REP</button> <button class="btn small danger" onclick="fwDeleteRecordRep(${i})">DELETE REP</button></details>`).join('');
+ const labels=fwRepEntries(draft).map(([id,v])=>{const x=fwMeasurementCatalog().find(z=>z.id===id);return `${x?.subject==='handler'?'Handler':'Java'} · ${x?.category||x?.name||'Observation'}: ${v}`});
+ const saved=reps.map((r,i)=>`<details style="border-top:1px solid #efd1dd;padding:10px 0"><summary style="font-weight:800;cursor:pointer">Rep ${i+1} · ${fwRepEntries(r.values).length} observations</summary><p class="tiny muted">${fwRepEntries(r.values).map(([id,v])=>{const x=fwMeasurementCatalog().find(z=>z.id===id);return esc((x?.subject==='handler'?'Handler':'Java')+' · '+(x?.category||x?.name||'Observation')+': '+v)}).join(' · ')}</p><button class="btn small secondary" onclick="fwEditRecordRep(${i})">EDIT REP</button> <button class="btn small danger" onclick="fwDeleteRecordRep(${i})">DELETE REP</button></details>`).join('');
  const overall=(s.unifiedObservations||[]).map((r,i)=>`<div class="listrow"><div class="grow"><b>${esc(r.subject==='handler'?'Handler':'Java')} · ${esc(r.category)} · ${esc(r.name)}</b><div class="tiny muted">${esc(r.trend||'steady')}${r.detail?' · '+esc(r.detail):''}</div></div><button class="btn small secondary" onclick="fwRemoveUnified(${i})">REMOVE</button></div>`).join('');
  return `<div class="card" style="border:2px solid #e89bb9;background:#fff9fc"><div class="kicker">🩷 ONE PLACE · RECORD OBSERVATIONS</div><p class="tiny muted">Record Java and Handler together for each rep, or choose Overall Session for something that applied to the whole session. No other recording screen.</p>
  <div class="seg" style="margin:10px 0"><button class="btn ${mode==='rep'?'':'secondary'}" onclick="fwRecordMode('rep')">REPS</button><button class="btn ${mode==='overall'?'':'secondary'}" onclick="fwRecordMode('overall')">OVERALL SESSION</button></div>
@@ -1179,7 +1183,7 @@ function fwUnifiedObservations(s){
  <button class="btn small secondary" style="margin-top:12px" onclick="fwCatalogManager()">EDIT OBSERVATIONS IN LIBRARY</button></div>`;
 }
 function fwRecordMode(v){syncSummaryFields();nav.session.fwRecordMode=v;renderSummary()}
-function fwAddToRep(){syncSummaryFields();const s=nav.session;if(!s.fwObsCategoryId||!s.fwObsName){alert('Choose what you observed and what you saw.');return}s.fwRepDraft=s.fwRepDraft||{};s.fwRepDraft[s.fwObsCategoryId]=s.fwObsName;s.fwObsName='';renderSummary();toast('Added to this rep ✓')}
+function fwAddToRep(){syncSummaryFields();const s=nav.session;if(!s.fwObsCategoryId||!s.fwObsName){alert('Choose what you observed and what you saw.');return}s.fwRepDraft=s.fwRepDraft||{};const old=fwAnswers(s.fwRepDraft[s.fwObsCategoryId]);if(old.includes(s.fwObsName)){toast('Already added to this rep');return}old.push(s.fwObsName);s.fwRepDraft[s.fwObsCategoryId]=old;s.fwObsName='';renderSummary();toast('Added to this rep ✓')}
 function fwSaveRecordRep(){syncSummaryFields();const s=nav.session;if(!Object.keys(s.fwRepDraft||{}).length){alert('Add at least one observation to this rep.');return}s.fwObservationReps=s.fwObservationReps||[];const row={id:uid(),values:{...s.fwRepDraft},recordedAt:new Date().toISOString()};if(s.fwEditingRepIndex!==undefined){const old=s.fwObservationReps[s.fwEditingRepIndex];row.id=old?.id||row.id;s.fwObservationReps[s.fwEditingRepIndex]=row}else s.fwObservationReps.push(row);delete s.fwEditingRepIndex;s.fwRepDraft={};s.fwObsName='';renderSummary();toast('Rep saved · Ready for next rep ✓')}
 function fwEditRecordRep(i){syncSummaryFields();const s=nav.session;if(!s.fwObservationReps?.[i])return;s.fwEditingRepIndex=i;s.fwRepDraft={...s.fwObservationReps[i].values};s.fwRecordMode='rep';renderSummary()}
 function fwDeleteRecordRep(i){syncSummaryFields();const s=nav.session;if(!s.fwObservationReps?.[i]||!confirm('Delete this rep?'))return;s.fwObservationReps.splice(i,1);delete s.fwEditingRepIndex;s.fwRepDraft={};renderSummary()}
