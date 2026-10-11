@@ -582,9 +582,9 @@ function fwEditMeasurement(origin,a,b,c){
 }
 function fwCatalogManager(){
  const rows=fwMeasurementCatalog();
- sheet(`<h2>Measurements</h2><p class="muted">One list for Java and Handler. Add a measurement, choose its category and where it appears.</p>
- <button class="btn full" onclick="fwCatalogForm()">+ ADD MEASUREMENT</button>
- ${rows.map(x=>`<div class="listrow"><div class="grow"><b>${esc(x.name)}</b><div class="tiny muted">${x.subject==='handler'?'Handler':'Java'} · ${esc(x.category||'Other')} · ${x.active===false?'Inactive':x.assignments?.length?x.assignments.length+' components':'Everywhere'}</div></div><button class="btn small secondary" onclick="fwCatalogForm('${x.id}')">EDIT</button></div>`).join('')||'<div class="empty">No measurements yet. Tap Add Measurement to start.</div>'}
+ sheet(`<h2>Observation Library</h2><p class="muted">Choose Java or Handler, name what you observe, and define the answers. No extra Measurement field.</p>
+ <button class="btn full" onclick="fwCatalogForm()">+ ADD OBSERVATION</button>
+ ${rows.map(x=>`<div class="listrow"><div class="grow"><b>${x.subject==='handler'?'Handler':'Java'} · ${esc(x.category||x.name)}</b><div class="tiny muted">${esc((x.choices||[]).join(' · ')||'No choices yet')} · ${x.active===false?'Inactive':x.assignments?.length?x.assignments.length+' components':'Everywhere'}</div></div><button class="btn small secondary" onclick="fwCatalogForm('${x.id}')">EDIT</button></div>`).join('')||'<div class="empty">No observations yet. Tap Add Observation to start.</div>'}
  <button class="btn secondary full" onclick="closeSheet()">DONE</button>`);
 }
 
@@ -594,25 +594,26 @@ function fwMeasurementAssigned(x,eid,cid){
  return !Array.isArray(a)||a.length===0||a.some(z=>z.exerciseId===eid&&(!z.componentId||z.componentId===cid));
 }
 function fwCatalogForm(id){
- const x=fwMeasurementCatalog().find(v=>v.id===id)||{subject:'dog',category:'Emotion',name:'',active:true};
+ const x=fwMeasurementCatalog().find(v=>v.id===id)||{subject:'dog',category:'',choices:[],active:true};
  const assigned=Array.isArray(x.assignments)?x.assignments:[];
  const assignmentUI=(state.exercises||[]).map(e=>`<details style="margin:8px 0;border:1px solid #e8c6d4;border-radius:10px;padding:9px"><summary style="font-weight:800;cursor:pointer">${esc(e.name)}</summary>${(e.components||[]).map(c=>`<label style="display:flex;gap:9px;align-items:center;padding:8px 2px"><input type="checkbox" class="fwAssignCheck" data-eid="${esc(e.id)}" data-cid="${esc(c.id)}" ${assigned.some(a=>a.exerciseId===e.id&&a.componentId===c.id)?'checked':''}><span>${esc(c.name)}</span></label>`).join('')||'<div class="tiny muted">No components yet.</div>'}</details>`).join('');
- sheet(`<h2>${id?'Edit':'Add'} Measurement</h2><div class="field"><label>FOR</label><select id="fwCatSubject"><option value="dog" ${x.subject==='dog'?'selected':''}>Java</option><option value="handler" ${x.subject==='handler'?'selected':''}>Handler</option></select></div><div class="field"><label>CATEGORY</label><input id="fwCatCategory" value="${esc(x.category)}" placeholder="Emotion, Precision, Mechanics..."></div><div class="field"><label>MEASUREMENT</label><input id="fwCatName" value="${esc(x.name)}" placeholder="What are you measuring?"></div><div class="field"><label><input id="fwCatActive" type="checkbox" ${x.active!==false?'checked':''}> Active — suggest during recording</label></div><div class="card"><b>WHERE SHOULD THIS APPEAR?</b><p class="tiny muted">Choose one or more components. If none are selected, this measurement is available everywhere (the previous behavior). Existing saved observations are not changed.</p>${assignmentUI}</div><div class="sheetActions"><button class="btn secondary" onclick="fwCatalogManager()">CANCEL</button><button class="btn" onclick="fwCatalogSave('${id||''}')">SAVE</button></div>`);
+ sheet(`<h2>${id?'Edit':'Add'} Observation</h2><div class="field"><label>WHO?</label><select id="fwCatSubject"><option value="dog" ${x.subject==='dog'?'selected':''}>Java</option><option value="handler" ${x.subject==='handler'?'selected':''}>Handler</option></select></div><div class="field"><label>WHAT ARE YOU OBSERVING?</label><input id="fwCatCategory" value="${esc(x.category||x.name||'')}" placeholder="Emotion, Upper Body, Rear Alignment..."></div><div class="field"><label>POSSIBLE ANSWERS · ONE PER LINE</label><textarea id="fwCatChoices" style="min-height:120px;width:100%;box-sizing:border-box" placeholder="Target&#10;Partial&#10;Compressed&#10;Unknown">${esc((x.choices||[]).join('\n'))}</textarea></div><p class="tiny muted">Example: Java → Emotion → Target. During training, pick one answer. Progress can compare it with other recorded answers.</p><div class="field"><label><input id="fwCatActive" type="checkbox" ${x.active!==false?'checked':''}> Active — show during recording</label></div><details class="card"><summary style="cursor:pointer;font-weight:800">WHERE DOES THIS APPEAR? · ${assigned.length?'Selected components':'Everywhere'}</summary><p class="tiny muted">Leave all unchecked for everywhere, or select components below.</p>${assignmentUI}</details><div class="sheetActions"><button class="btn secondary" onclick="fwCatalogManager()">CANCEL</button><button class="btn" onclick="fwCatalogSave('${id||''}')">SAVE</button></div>`);
 }
 function fwCatalogSave(id){
- const name=val('fwCatName').trim(),category=val('fwCatCategory').trim(),subject=val('fwCatSubject');
- if(!name||!category){alert('Enter a name and category.');return}
- const a=fwMeasurementCatalog();if(a.some(x=>x.id!==id&&x.subject===subject&&x.name.toLowerCase()===name.toLowerCase())){alert('That measurement already exists for this subject.');return}
+ const category=val('fwCatCategory').trim(),subject=val('fwCatSubject');
+ const choices=[...new Set((document.getElementById('fwCatChoices').value||'').split(/\r?\n/).map(v=>v.trim()).filter(Boolean))];
+ if(!category||!choices.length){alert('Enter what you observe and at least one possible answer.');return}
+ const a=fwMeasurementCatalog();if(a.some(x=>x.id!==id&&x.subject===subject&&(x.category||x.name).toLowerCase()===category.toLowerCase())){alert('This observation already exists for this subject.');return}
  const assignments=Array.from(document.querySelectorAll('.fwAssignCheck:checked')).map(n=>({exerciseId:n.dataset.eid,componentId:n.dataset.cid}));
- const fields={name,category,subject,active:document.getElementById('fwCatActive').checked,assignments};
+ const fields={name:category,category,choices,subject,active:document.getElementById('fwCatActive').checked,assignments};
  const x=a.find(x=>x.id===id);if(x)Object.assign(x,fields);else a.push({id:uid(),...fields});
- save();fwCatalogManager();toast('Measurement and assignments saved ✓');
+ save();fwCatalogManager();toast('Observation and answers saved ✓');
 }
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 40</div><div class="title" style="font-size:22px">Library</div></div></div>
- <div class="card"><h3>Measurements</h3><p class="muted">Java and Handler observations. Create, edit and assign them here.</p><button class="btn full" onclick="fwCatalogManager()">OPEN MEASUREMENTS</button></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 41</div><div class="title" style="font-size:22px">Library</div></div></div>
+ <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
  <div class="card"><h3>Your training curriculum is separate</h3><p class="muted">Your goals, exercises, components, progressions and step instructions are not changed by this Library cleanup.</p></div>`;
 }
@@ -975,20 +976,23 @@ function fwMeasuredPatternPanel(ss){
 function fwUnifiedObservations(s){
  const rows=(s.unifiedObservations||[]);
  const renderRows=rows.map((r,i)=>`<div class="listrow"><div class="grow"><b>${esc(r.subject==='handler'?'👤 Handler':'🐕 Java')} · ${esc(r.category)} · ${esc(r.name)}</b><div class="tiny muted">${esc(r.trend==='improving'?'↗ Improving':r.trend==='declining'?'↘ Declining':'→ Holding Steady')}${r.detail?' · '+esc(r.detail):''}</div></div><button class="btn small secondary" onclick="fwRemoveUnified(${i})">REMOVE</button></div>`).join('');
- const dog=[...new Set([...fwMeasurementCatalog().filter(x=>x.subject==='dog'&&x.active!==false&&fwMeasurementAssigned(x,s.exerciseId,s.componentId)).map(x=>x.name),'Rear alignment','Emotional picture','Heel position'])];
- const handler=[...new Set([...fwMeasurementCatalog().filter(x=>x.subject==='handler'&&x.active!==false&&fwMeasurementAssigned(x,s.exerciseId,s.componentId)).map(x=>x.name)])];
+ const subject=s.fwObsSubject==='handler'?'handler':'dog';
+ const catalog=fwMeasurementCatalog().filter(x=>x.subject===subject&&x.active!==false&&fwMeasurementAssigned(x,s.exerciseId,s.componentId));
+ const selected=catalog.find(x=>x.id===s.fwObsCategoryId);
  return `<div class="card" style="border:2px solid #e89bb9;background:#fff9fc"><div class="kicker">🩷 ONE PLACE · RECORD OBSERVATIONS</div><p class="tiny muted">For observations you did NOT already record as a rep or component measurement, add them here. Existing measurements appear above; assess those there instead of entering them twice. Coffee is separate.</p>
  <div class="seg" style="margin:10px 0"><button class="btn ${s.fwObsSubject==='handler'?'secondary':''}" onclick="fwObsSubject('dog')">🐕 JAVA</button><button class="btn ${s.fwObsSubject==='handler'?'':'secondary'}" onclick="fwObsSubject('handler')">👤 HANDLER</button></div>
- <div class="tiny muted">CATEGORY · Type your own, or choose a suggestion</div><input id="fwObsCategory" list="fwObsCats" style="width:100%;box-sizing:border-box;margin:5px 0 12px" placeholder="e.g. Emotion, Precision, Mechanics" value="${esc(s.fwObsCategory||'')}"/><datalist id="fwObsCats">${[...new Set([...(s.fwObsSubject==='handler'?['Mechanics','Mental / Pressure','Timing','Reward','Other']:['Emotion','Precision / Body','Engagement','Other']),...fwMeasurementCatalog().filter(x=>x.subject===(s.fwObsSubject==='handler'?'handler':'dog')&&x.active!==false&&fwMeasurementAssigned(x,s.exerciseId,s.componentId)).map(x=>x.category)])].map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
- <div class="tiny muted">WHAT DID YOU OBSERVE? · Choose an existing item or type your own</div><input id="fwObsName" list="fwObsNames" style="width:100%;box-sizing:border-box;margin:5px 0 12px" placeholder="e.g. Ass slightly in" value="${esc(s.fwObsName||'')}"/><datalist id="fwObsNames">${(s.fwObsSubject==='handler'?handler:dog).map(x=>`<option value="${esc(typeof x==='string'?x:x.name||'')}">`).join('')}</datalist>
+ <div class="tiny muted">WHAT ARE YOU OBSERVING?</div><select id="fwObsCategorySelect" style="width:100%;box-sizing:border-box;margin:5px 0 12px" onchange="fwObsChooseCategory(this.value)"><option value="">Choose...</option>${catalog.map(x=>`<option value="${esc(x.id)}" ${selected?.id===x.id?'selected':''}>${esc(x.category||x.name)}</option>`).join('')}</select>
+ <div class="tiny muted">WHAT DID YOU SEE?</div><select id="fwObsChoice" style="width:100%;box-sizing:border-box;margin:5px 0 12px" onchange="fwObsChooseAnswer(this.value)"><option value="">Choose...</option>${(selected?.choices||[]).map(v=>`<option value="${esc(v)}" ${s.fwObsName===v?'selected':''}>${esc(v)}</option>`).join('')}</select>
  <div class="tiny muted" style="margin-bottom:7px">DIRECTION OF CHANGE</div><div class="seg" style="display:flex;gap:5px;flex-wrap:wrap">${[['improving','↗ Improving'],['steady','→ Holding Steady'],['declining','↘ Declining']].map(([v,l])=>`<button class="btn small ${s.fwObsTrend===v?'':'secondary'}" onclick="fwObsTrend('${v}')">${l}</button>`).join('')}</div>
  <textarea id="fwObsDetail" style="min-height:58px;width:100%;box-sizing:border-box;margin-top:12px" placeholder="Optional details — what did you actually see?">${esc(s.fwObsDetail||'')}</textarea>
  <button class="btn full" style="margin-top:9px" onclick="fwAddUnified()">+ SAVE OBSERVATION</button>
  ${rows.length?`<div class="kicker" style="margin-top:16px">THIS SESSION · ${rows.length} OBSERVATION${rows.length===1?'':'S'}</div>${renderRows}`:'<p class="tiny muted" style="margin-top:12px">No observations recorded yet.</p>'}
  <button class="btn small secondary" onclick="fwCatalogManager()">MANAGE MEASUREMENTS IN LIBRARY</button></div>`;
 }
-function fwObsCapture(){const s=nav.session;if(!s)return;s.fwObsCategory=document.getElementById('fwObsCategory')?.value||s.fwObsCategory||'';s.fwObsName=document.getElementById('fwObsName')?.value||s.fwObsName||'';s.fwObsDetail=document.getElementById('fwObsDetail')?.value||s.fwObsDetail||''}
-function fwObsSubject(v){syncSummaryFields();fwObsCapture();const s=nav.session;s.fwObsSubject=v;s.fwObsCategory='';s.fwObsName='';s.fwObsDetail='';renderSummary()}
+function fwObsCapture(){const s=nav.session;if(!s)return;s.fwObsDetail=document.getElementById('fwObsDetail')?.value||s.fwObsDetail||''}
+function fwObsSubject(v){syncSummaryFields();fwObsCapture();const s=nav.session;s.fwObsSubject=v;s.fwObsCategory='';s.fwObsCategoryId='';s.fwObsName='';s.fwObsDetail='';renderSummary()}
+function fwObsChooseCategory(id){syncSummaryFields();const s=nav.session;s.fwObsCategoryId=id;const x=fwMeasurementCatalog().find(v=>v.id===id);s.fwObsCategory=x?.category||x?.name||'';s.fwObsName='';renderSummary()}
+function fwObsChooseAnswer(v){if(nav.session)nav.session.fwObsName=v}
 function fwObsTrend(v){syncSummaryFields();fwObsCapture();nav.session.fwObsTrend=v;renderSummary()}
 function fwAddUnified(){syncSummaryFields();fwObsCapture();const s=nav.session,name=(s.fwObsName||'').trim(),category=(s.fwObsCategory||'').trim();if(!name){alert('Enter what you observed first.');return}if(!category){alert('Choose or enter a category first.');return}const subject=s.fwObsSubject==='handler'?'handler':'dog',trend=s.fwObsTrend||'steady';s.unifiedObservations=s.unifiedObservations||[];s.unifiedObservations.push({subject,category,name,trend,detail:(s.fwObsDetail||'').trim(),recordedAt:new Date().toISOString()});
  // Existing Progress → Patterns uses these fields. Only clear directional judgments are bridged.
