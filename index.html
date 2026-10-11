@@ -612,7 +612,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 42</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 43</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
  <div class="card"><h3>Your training curriculum is separate</h3><p class="muted">Your goals, exercises, components, progressions and step instructions are not changed by this Library cleanup.</p></div>`;
@@ -902,7 +902,7 @@ function fwTrainingMeasurementEntry(s){
  const catalog=fwRepCatalog(s),reps=s.fwObservationReps||[];
  const fields=catalog.map(x=>`<div class="field"><label>${x.subject==='handler'?'👤 HANDLER':'🐕 JAVA'} · ${esc(x.category||x.name)}</label><select class="fwRepChoice" data-id="${esc(x.id)}"><option value="">Not recorded</option>${x.choices.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></div>`).join('');
  const recorded=reps.map((r,i)=>`<div class="listrow"><div class="grow"><b>Attempt ${i+1}</b><div class="tiny muted">${Object.entries(r.values||{}).map(([id,value])=>{const x=fwMeasurementCatalog().find(z=>z.id===id);return esc((x?.subject==='handler'?'Handler · ':'Java · ')+(x?.category||x?.name||'Observation')+': '+value)}).join(' · ')}</div></div><button class="btn small danger" onclick="fwDeleteObservationRep(${i})">DELETE</button></div>`).join('');
- const content=`<p class="tiny muted">One attempt = one record. Choose any observations that occurred together. Leave anything you did not assess blank. The pink Progress Lab compares them.</p>${fields||'<p class="muted">No observations assigned. Add them in Library → Observations first.</p>'}${catalog.length?'<button class="btn full" onclick="fwSaveObservationRep()">+ SAVE ATTEMPT</button>':''}${recorded}<button class="btn small secondary" onclick="preserveLiveNote();fwCatalogManager()">EDIT OBSERVATIONS IN LIBRARY</button>`;
+ const content=`<div class="kicker">${reps.length?'NEXT REP · '+(reps.length+1):'REP 1'}</div><p class="tiny muted">One attempt = one record. Choose any observations that occurred together. Leave anything you did not assess blank. The pink Progress Lab compares them.</p>${fields||'<p class="muted">No observations assigned. Add them in Library → Observations first.</p>'}${catalog.length?'<button class="btn full" onclick="fwSaveObservationRep()">+ '+(reps.length?'SAVE NEXT REP':'SAVE REP 1')+'</button>':''}${recorded}<button class="btn small secondary" onclick="preserveLiveNote();fwCatalogManager()">EDIT OBSERVATIONS IN LIBRARY</button>`;
  return fwFold('measurements','🩷 RECORD OBSERVATIONS',content,`${reps.length} attempts recorded`,false);
 }
 function fwSaveObservationRep(){
@@ -912,7 +912,7 @@ function fwSaveObservationRep(){
  if(!Object.keys(values).length){alert('Choose at least one observation for this attempt.');return}
  s.fwObservationReps=s.fwObservationReps||[];
  s.fwObservationReps.push({id:uid(),values,recordedAt:new Date().toISOString()});
- renderLive();toast('Attempt saved ✓');
+ s.uiFolds=s.uiFolds||{};s.uiFolds.measurements=true;renderLive();toast('Rep '+s.fwObservationReps.length+' saved · Ready for next rep ✓');
 }
 function fwDeleteObservationRep(i){
  preserveLiveNote();if(!nav.session?.fwObservationReps?.[i])return;
@@ -999,8 +999,14 @@ function fwSetMeasurementTrend(id,trend){
 function fwMeasuredObservationPanel(s){
  const rows=fwRecordedMeasurements(s),trends=s.measurementTrends||{};
  if(!rows.length)return '';
- return `<div class="card" style="border:2px solid #e59aba;background:#fff8fb"><div class="kicker">🩷 ALREADY RECORDED · ASSESS HERE</div><p class="tiny muted">These are your actual saved rep and component measurements. Do NOT enter them again below. Optionally mark how each is trending; the original value and rep-level detail remain intact. No trend is assumed.</p>${rows.map(r=>`<div style="border-top:1px solid #efd1dd;padding:10px 0"><b>${esc(r.name)}: ${esc(r.value)}</b><div class="tiny muted">${esc(r.source)} · ${esc(r.category)}</div><div class="chiprow" style="margin-top:6px">${[['improving','↗ Improving'],['steady','→ Holding Steady'],['declining','↘ Declining'],['unrated','Not rated']].map(([v,l])=>`<button class="btn small ${(trends[r.id]||'unrated')===v?'':'secondary'}" style="margin:3px" onclick="fwSetMeasurementTrend(${JSON.stringify(r.id).replace(/"/g,'&quot;')},'${v}')">${l}</button>`).join('')}</div></div>`).join('')}</div>`;
+ const groups=[];
+ rows.forEach(r=>{let group=groups.find(g=>g.source===r.source);if(!group){group={source:r.source,rows:[]};groups.push(group)}group.rows.push(r)});
+ const rated=rows.filter(r=>trends[r.id]).length;
+ return `<div class="card" style="border:2px solid #e59aba;background:#fff8fb"><div class="kicker">🩷 RECORDED REPS · ${groups.length} GROUPS</div><p class="tiny muted">${rows.length} observations saved · ${rated} trend ratings. Tap a rep to review its observations or optionally rate change. No need to enter anything twice.</p>
+ ${groups.map(g=>`<details style="border-top:1px solid #efd1dd;padding:12px 0"><summary style="cursor:pointer;font-weight:800">${esc(g.source)} · ${g.rows.length} observations <span class="tiny muted" style="display:block;font-weight:400">${esc(g.rows.map(r=>r.name+': '+r.value).join(' · '))}</span></summary>
+ <div style="padding-top:10px">${g.rows.map(r=>`<div style="border-top:1px solid #efd1dd;padding:10px 0"><b>${esc(r.name)}: ${esc(r.value)}</b><div class="chiprow" style="margin-top:6px">${[['improving','↗ Improving'],['steady','→ Holding Steady'],['declining','↘ Declining'],['unrated','Not rated']].map(([v,l])=>`<button class="btn small ${(trends[r.id]||'unrated')===v?'':'secondary'}" style="margin:3px" onclick="fwSetMeasurementTrend(${JSON.stringify(r.id).replace(/"/g,'&quot;')},'${v}')">${l}</button>`).join('')}</div></div>`).join('')}</div></details>`).join('')}</div>`;
 }
+
 function fwMeasuredPatternPanel(ss){
  const rows=ss.flatMap(s=>fwRecordedMeasurements(s).map(r=>({...r,trend:(s.measurementTrends||{})[r.id]}))).filter(r=>r.trend);
  if(!rows.length)return '';
