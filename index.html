@@ -582,10 +582,27 @@ function fwEditMeasurement(origin,a,b,c){
 }
 function fwCatalogManager(){
  const rows=fwMeasurementCatalog();
+ const inRecord=nav.screen==='summaryScreen'&&!!nav.session;
  sheet(`<h2>Observation Library</h2><p class="muted">Choose Java or Handler, name what you observe, and define the answers. No extra Measurement field.</p>
  <button class="btn full" onclick="fwCatalogForm()">+ ADD OBSERVATION</button>
  ${rows.map(x=>`<div class="listrow"><div class="grow"><b>${x.subject==='handler'?'Handler':'Java'} · ${esc(x.category||x.name)}</b><div class="tiny muted">${esc((x.choices||[]).join(' · ')||'No choices yet')} · ${x.active===false?'Inactive':x.assignments?.length?x.assignments.length+' components':'Everywhere'}</div></div><button class="btn small secondary" onclick="fwCatalogForm('${x.id}')">EDIT</button></div>`).join('')||'<div class="empty">No observations yet. Tap Add Observation to start.</div>'}
- <button class="btn secondary full" onclick="closeSheet()">DONE</button>`);
+ <button class="btn secondary full" onclick="fwCatalogDone()">${inRecord?'DONE · BACK TO RECORD SESSION':'DONE'}</button>`);
+}
+function fwCatalogDone(){
+ closeSheet();
+ if(nav.screen==='summaryScreen'&&nav.session){syncSummaryFields();renderSummary()}
+}
+function fwRefreshObservationChoices(){
+ if(!nav.session||nav.screen!=='summaryScreen')return;
+ const s=nav.session;
+ const selected=fwMeasurementCatalog().find(x=>x.id===s.fwObsCategoryId);
+ if(selected){
+  s.fwObsCategory=selected.category||selected.name||'';
+  if(s.fwObsName&&!(selected.choices||[]).includes(s.fwObsName))s.fwObsName='';
+ }
+ // Re-render the live recording choices from the saved catalog, preserving
+ // all draft rep observations, existing reps, notes and session data.
+ syncSummaryFields();renderSummary();
 }
 
 // Build 39: reusable catalog measurement assignments. Unassigned legacy entries remain unchanged.
@@ -607,12 +624,12 @@ function fwCatalogSave(id){
  const assignments=Array.from(document.querySelectorAll('.fwAssignCheck:checked')).map(n=>({exerciseId:n.dataset.eid,componentId:n.dataset.cid}));
  const fields={name:category,category,choices,subject,active:document.getElementById('fwCatActive').checked,assignments};
  const x=a.find(x=>x.id===id);if(x)Object.assign(x,fields);else a.push({id:uid(),...fields});
- save();fwCatalogManager();toast('Observation and answers saved ✓');
+ save();fwRefreshObservationChoices();fwCatalogManager();toast('Observation and answers saved · Record Session refreshed ✓');
 }
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 45</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 46</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
  <div class="card"><h3>Your training curriculum is separate</h3><p class="muted">Your goals, exercises, components, progressions and step instructions are not changed by this Library cleanup.</p></div>`;
