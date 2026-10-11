@@ -629,7 +629,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 48</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 49</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
  <div class="card"><h3>Your training curriculum is separate</h3><p class="muted">Your goals, exercises, components, progressions and step instructions are not changed by this Library cleanup.</p></div>`;
@@ -909,6 +909,35 @@ let heelLabFilters={field:'upper',metric:'target',range:'all',value:'all',scope:
 function heelLabSet(k,v){heelLabFilters[k]=v;if(k==='field')heelLabFilters.value='all';renderProgress()}
 let fwPairFilters={scope:'sessions',range:'all',a:'',av:'',b:'',bv:''};
 function fwPairChange(k,v){fwPairFilters[k]=v;if(k==='a')fwPairFilters.av='';if(k==='b')fwPairFilters.bv='';renderProgress()}
+function fwOpenSuggestedPair(a,av,b,bv){
+ fwPairFilters.scope='sessions';fwPairFilters.a=a;fwPairFilters.av=av;fwPairFilters.b=b;fwPairFilters.bv=bv;
+ renderProgress();
+}
+function fwDiscoverPairs(rows,catalog){
+ const counts={};const found=[];
+ const ids=[...new Set(rows.flatMap(r=>Object.keys(r.values||{})))];
+ for(let i=0;i<ids.length;i++)for(let j=0;j<ids.length;j++){
+  if(i===j)continue;
+  const a=ids[i],b=ids[j],ca=catalog.find(x=>x.id===a),cb=catalog.find(x=>x.id===b);
+  if(!ca||!cb)continue;
+  const paired=rows.filter(r=>r.date&&/^\\d{4}-\\d{2}-\\d{2}$/.test(r.date)&&r.values[a]&&r.values[b]);
+  if(paired.length<8||new Set(paired.map(r=>r.date)).size<3)continue;
+  const aValues=[...new Set(paired.map(r=>r.values[a]))],bValues=[...new Set(paired.map(r=>r.values[b]))];
+  for(const av of aValues)for(const bv of bValues){
+   const yes=paired.filter(r=>r.values[a]===av),no=paired.filter(r=>r.values[a]!==av);
+   if(yes.length<3||no.length<3)continue;
+   if(new Set(yes.map(r=>r.date)).size<2||new Set(no.map(r=>r.date)).size<2)continue;
+   const y=yes.filter(r=>r.values[b]===bv).length,n=no.filter(r=>r.values[b]===bv).length;
+   const r1=y/yes.length,r0=n/no.length,diff=Math.abs(r1-r0);
+   if(diff<.25)continue;
+   // Keep only the strongest direction for each observation-answer pairing.
+   const key=[a,bv,b].join('|');
+   const entry={a,av,b,bv,yes:yes.length,no:no.length,y,n,diff,dates:new Set(paired.map(r=>r.date)).size,paired:paired.length};
+   if(!counts[key]||counts[key].diff<diff)counts[key]=entry;
+  }
+ }
+ return Object.values(counts).sort((x,y)=>y.diff-x.diff||y.paired-x.paired).slice(0,3);
+}
 function fwPairLab(e,c){
  const f=fwPairFilters,catalog=fwMeasurementCatalog();
  const cutoff=f.range==='all'?'':localDateKey(new Date(Date.now()-Number(f.range)*86400000));
@@ -940,6 +969,14 @@ function fwPairLab(e,c){
   });
   return {date,values,distributions};
  });
+ const suggestions=fwDiscoverPairs(summaryRows,catalog);
+ const suggestionHtml=suggestions.length?suggestions.map(z=>{
+  const ax=catalog.find(x=>x.id===z.a),bx=catalog.find(x=>x.id===z.b);
+  const aName=(ax?.subject==='handler'?'Handler · ':'Java · ')+(ax?.category||ax?.name||'Observation');
+  const bName=(bx?.subject==='handler'?'Handler · ':'Java · ')+(bx?.category||bx?.name||'Observation');
+  const yesRate=Math.round(z.y/z.yes*100),noRate=Math.round(z.n/z.no*100);
+  return `<button type="button" class="btn secondary full" style="white-space:normal;text-align:left;margin:8px 0;background:#fff;border:1px solid #e9b5ce;color:#204d3b;padding:13px;border-radius:14px" onclick="fwOpenSuggestedPair('${esc(z.a)}','${esc(z.av)}','${esc(z.b)}','${esc(z.bv)}')"><b>🌸 ${esc(bName)} · ${esc(z.bv)}</b><br><span style="font-size:13px">When ${esc(aName)} = ${esc(z.av)}: <b>${yesRate}%</b> (${z.y}/${z.yes}) · Otherwise: <b>${noRate}%</b> (${z.n}/${z.no})</span><br><small>${z.paired} paired sessions across ${z.dates} dates · Tap to view charts</small></button>`;
+ }).join(''):`<p class="tiny muted">No well-supported relationships to highlight yet. Keep recording observations across multiple sessions and dates. You can still explore any combination below.</p>`;
  const all=f.scope==='reps'?repRows:summaryRows;
  const ids=[...new Set(all.flatMap(r=>Object.keys(r.values)))];
  const options=ids.map(id=>catalog.find(x=>x.id===id)||{id,subject:'dog',category:'Archived observation',choices:[]});
@@ -959,6 +996,7 @@ function fwPairLab(e,c){
  return `<div class="pCard" style="border:2px solid #e79abb;background:#fff7fb;border-radius:22px">
  <div class="pHead" style="color:#204d3b;font-size:21px">🩷 REPRODUCIBILITY LAB</div>
  <p style="color:#675e65">Discover how your handling and Java’s behavior relate over time. Record once: overall notes or reps. No double entry.</p>
+ <div style="background:#f5e3ed;border:1px solid #e9b5ce;border-radius:17px;padding:13px;margin:14px 0"><h3 style="color:#204d3b;margin:0 0 7px">🌸 Patterns Worth Looking At</h3><p class="tiny muted">Automatically scans this component's session observations. Highlights only differences of at least 25 percentage points, with 8+ paired sessions across 3+ dates and enough observations in both comparison groups. These are possible associations, not proof of cause.</p>${suggestionHtml}</div>
  <div class="field"><label>COMPARE USING</label><select style="width:100%;padding:12px;border-radius:12px" onchange="fwPairChange('scope',this.value)"><option value="sessions" ${f.scope==='sessions'?'selected':''}>Across Sessions · Main View</option><option value="reps" ${f.scope==='reps'?'selected':''}>Across Reps · Optional</option></select></div>
  <div class="field"><label>TIME RANGE</label><select style="width:100%;padding:12px;border-radius:12px" onchange="fwPairChange('range',this.value)">${[['all','All history'],['30','Last 30 days'],['90','Last 90 days'],['180','Last 180 days'],['365','Last year']].map(([v,l])=>`<option value="${v}" ${f.range===v?'selected':''}>${l}</option>`).join('')}</select></div>
  <div class="field"><label>FIRST OBSERVATION</label>${field('a')}${f.a?value('av',f.a):''}</div>
