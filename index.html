@@ -629,7 +629,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 52</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 53</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Handler Performance</h3><p class="muted">Edit technical, mental, pressure, response and session-effect choices.</p><button class="btn full" onclick="fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
@@ -982,6 +982,22 @@ function fwPairLab(e,c){
   });
   return {date,values,distributions};
  });
+ const overviewItems=[...new Set(summaryRows.flatMap(r=>Object.keys(r.distributions||{})))].map(id=>{
+  const x=catalog.find(z=>z.id===id),counts={},dates=new Set();let sessionsSeen=0,repBased=0;
+  summaryRows.forEach(r=>{const d=r.distributions?.[id];if(!d||!d.n)return;sessionsSeen++;if(r.date&&/^\d{4}-\d{2}-\d{2}$/.test(r.date))dates.add(r.date);if(d.source==='reps')repBased++;Object.entries(d.counts||{}).forEach(([answer,n])=>counts[answer]=(counts[answer]||0)+n)});
+  const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);return {id,x,entries,total:entries.reduce((n,e)=>n+e[1],0),sessionsSeen,repBased,dates:dates.size};
+ }).filter(x=>x.total).sort((a,b)=>b.sessionsSeen-a.sessionsSeen||b.total-a.total);
+ const overviewPalette=['#d65b96','#204d3b','#f4b6cf','#82a58e','#a85c81','#d9d6c5'];
+ const overviewHtml=overviewItems.length?overviewItems.slice(0,4).map(item=>{
+  const title=(item.x?.subject==='handler'?'Handler · ':'Java · ')+(item.x?.category||item.x?.name||'Archived observation');
+  let pos=0;const parts=item.entries.map(([name,n],i)=>{const from=pos;pos+=n/item.total*100;return `${overviewPalette[i%overviewPalette.length]} ${from.toFixed(2)}% ${pos.toFixed(2)}%`});
+  const legend=item.entries.map(([name,n],i)=>`<div style="display:flex;align-items:flex-start;gap:7px;margin:5px 0;font-size:12px;color:#294c3e"><span style="width:10px;height:10px;border-radius:50%;background:${overviewPalette[i%overviewPalette.length]};flex:none;margin-top:4px"></span><span style="flex:1">${esc(name)}</span><b>${n} · ${Math.round(n/item.total*100)}%</b></div>`).join('');
+  return `<div style="background:#fffdfd;border:1px solid #ecc5d8;border-radius:17px;padding:13px;min-width:0"><b style="color:#204d3b;font-size:15px">${esc(title)}</b><div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:10px"><div role="img" aria-label="Answer distribution for ${esc(title)}" style="width:118px;height:118px;border-radius:50%;background:conic-gradient(${parts.join(',')});display:grid;place-items:center;flex:none"><div style="width:82px;height:82px;background:#fff;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center"><b style="font-size:22px;color:#204d3b">${item.total}</b><small style="font-size:10px;color:#786c72">answers</small></div></div><div style="flex:1;min-width:135px">${legend}</div></div><div style="font-size:11px;color:#766b71;margin-top:8px">${item.sessionsSeen} sessions · ${item.dates} dates${item.repBased?' · includes rep answers':''}</div></div>`;
+ }).join(''):'<p class="tiny muted">No observations recorded for this component yet. Charts will appear automatically as you record Java and Handler observations.</p>';
+ const dateGroups={};summaryRows.forEach(r=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(r.date))return;const bucket=dateGroups[r.date]||(dateGroups[r.date]={date:r.date,observed:0});if(Object.values(r.distributions||{}).some(d=>d.n))bucket.observed++});
+ const dated=Object.values(dateGroups).filter(x=>x.observed).sort((a,b)=>a.date.localeCompare(b.date));
+ const timeGraph=dated.length>=2?(()=>{const w=340,h=150,pts=dated.map((x,i)=>({x:24+i*290/(dated.length-1),y:126-(x.observed/Math.max(...dated.map(v=>v.observed)))*100}));return `<svg viewBox="0 0 340 150" role="img" aria-label="Number of sessions with recorded observations by date" style="width:100%;height:auto"><line x1="24" y1="126" x2="320" y2="126" stroke="#b8c8bd"/><path d="${pts.map((p,i)=>(i?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1)).join(' ')}" fill="none" stroke="#d65b96" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="5" fill="#204d3b" stroke="#fff" stroke-width="2"/>`).join('')}</svg><div style="display:flex;justify-content:space-between;font-size:11px;color:#786c72"><span>${esc(dated[0].date)}</span><span>${esc(dated[dated.length-1].date)}</span></div><p class="tiny muted">Sessions with observations per date. This shows recording activity, not whether Java improved.</p>`})():'<p class="tiny muted">A date-by-date graph will appear after observations are recorded on two different dates.</p>';
+ const overviewPanel=`<div style="background:#f5e5ee;border:1px solid #e6abc7;border-radius:19px;padding:14px;margin:14px 0"><h3 style="color:#204d3b;margin:0 0 5px">🌷 Reproducibility Overview</h3><p class="tiny muted">Automatic charts from your saved observations — no selections required. Each donut counts recorded answers, including multiple answers in one rep or overall session; these are descriptive, not proof of a reproducible pattern.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:10px">${overviewHtml}</div><div style="background:#fff;border:1px solid #ecc5d8;border-radius:16px;padding:13px;margin-top:12px"><b style="color:#204d3b">🌸 Across training dates</b>${timeGraph}</div><p class="tiny muted" style="margin-top:9px">${sessions.length} sessions in selected date range · ${dated.length} dates with observations. ${sessions.length<8?'Early data — not enough sessions to claim a reproducible relationship.':''}</p></div>`;
  const suggestions=fwDiscoverPairs(summaryRows,catalog);
  const suggestionHtml=suggestions.length?suggestions.map(z=>{
   const ax=catalog.find(x=>x.id===z.a),bx=catalog.find(x=>x.id===z.b);
@@ -1009,6 +1025,7 @@ function fwPairLab(e,c){
  return `<div class="pCard" style="border:2px solid #e79abb;background:#fff7fb;border-radius:22px">
  <div class="pHead" style="color:#204d3b;font-size:21px">🩷 REPRODUCIBILITY LAB</div>
  <p style="color:#675e65">Discover how your handling and Java’s behavior relate over time. Record once: overall notes or reps. No double entry.</p>
+ ${overviewPanel}
  <div style="background:#f5e3ed;border:1px solid #e9b5ce;border-radius:17px;padding:13px;margin:14px 0"><h3 style="color:#204d3b;margin:0 0 7px">🌸 Patterns Worth Looking At</h3><p class="tiny muted">Automatically scans this component's session observations. Highlights only differences of at least 25 percentage points, with 8+ paired sessions across 3+ dates and enough observations in both comparison groups. These are possible associations, not proof of cause.</p>${suggestionHtml}</div>
  <div class="field"><label>COMPARE USING</label><select style="width:100%;padding:12px;border-radius:12px" onchange="fwPairChange('scope',this.value)"><option value="sessions" ${f.scope==='sessions'?'selected':''}>Across Sessions · Main View</option><option value="reps" ${f.scope==='reps'?'selected':''}>Across Reps · Optional</option></select></div>
  <div class="field"><label>TIME RANGE</label><select style="width:100%;padding:12px;border-radius:12px" onchange="fwPairChange('range',this.value)">${[['all','All history'],['30','Last 30 days'],['90','Last 90 days'],['180','Last 180 days'],['365','Last year']].map(([v,l])=>`<option value="${v}" ${f.range===v?'selected':''}>${l}</option>`).join('')}</select></div>
@@ -1104,7 +1121,7 @@ const mentalLevels=['Clear','Recovered','Struggled','Looped'];
 const pressureChoices=['Unclear / conflicting dog behavior','Repeated unsuccessful reps','Technical criticism / club context','My own expectations','No significant pressure'];
 const responseChoices=['Learner — diagnosed and adjusted','Paused or ended appropriately','Pushed through without a useful adjustment','Got caught in the mental loop'];
 const effectChoices=['Improved','No clear change','Got worse'];
-// Build 52: editable Handler Performance labels and choices; stored independently from training curriculum.
+// Build 53: editable Handler Performance labels and choices; stored independently from training curriculum.
 const fwHandlerDefaults={
  technical:{title:'☕ Technical handling',choices:['Excellent','Solid','Inconsistent','Needs work']},
  mental:{title:'☕ Mental performance',choices:['Clear','Recovered','Struggled','Looped']},
