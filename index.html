@@ -629,8 +629,9 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 51</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 52</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
+ <div class="card"><h3>Handler Performance</h3><p class="muted">Edit technical, mental, pressure, response and session-effect choices.</p><button class="btn full" onclick="fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
  <div class="card"><h3>Your training curriculum is separate</h3><p class="muted">Your goals, exercises, components, progressions and step instructions are not changed by this Library cleanup.</p></div>`;
 }
@@ -1103,18 +1104,71 @@ const mentalLevels=['Clear','Recovered','Struggled','Looped'];
 const pressureChoices=['Unclear / conflicting dog behavior','Repeated unsuccessful reps','Technical criticism / club context','My own expectations','No significant pressure'];
 const responseChoices=['Learner — diagnosed and adjusted','Paused or ended appropriately','Pushed through without a useful adjustment','Got caught in the mental loop'];
 const effectChoices=['Improved','No clear change','Got worse'];
+// Build 52: editable Handler Performance labels and choices; stored independently from training curriculum.
+const fwHandlerDefaults={
+ technical:{title:'☕ Technical handling',choices:['Excellent','Solid','Inconsistent','Needs work']},
+ mental:{title:'☕ Mental performance',choices:['Clear','Recovered','Struggled','Looped']},
+ pressure:{title:'What triggered pressure?',choices:['Unclear / conflicting dog behavior','Repeated unsuccessful reps','Technical criticism / club context','My own expectations','No significant pressure']},
+ response:{title:'How did I respond?',choices:['Learner — diagnosed and adjusted','Paused or ended appropriately','Pushed through without a useful adjustment','Got caught in the mental loop']},
+ effect:{title:'Effect on the session',choices:['Improved','No clear change','Got worse']}
+};
+function fwHandlerConfig(){
+ state.libraries=state.libraries||{};
+ if(!state.libraries.handlerPerformanceConfig)state.libraries.handlerPerformanceConfig={};
+ return state.libraries.handlerPerformanceConfig;
+}
+function fwHandlerChoices(field){
+ const custom=fwHandlerConfig()[field];
+ return custom&&Array.isArray(custom.choices)?custom.choices:fwHandlerDefaults[field].choices;
+}
+function fwHandlerTitle(field){return fwHandlerConfig()[field]?.title||fwHandlerDefaults[field].title}
+function fwHandlerManager(){
+ const config=fwHandlerConfig();
+ sheet(`<h2>🧠 Manage Handler Performance</h2><p class="muted">Edit section titles and button choices. Saved session answers remain intact, including answers removed from the current list.</p>
+ ${Object.keys(fwHandlerDefaults).map(field=>`<div class="card"><b>${esc(fwHandlerTitle(field))}</b><div class="tiny muted">${fwHandlerChoices(field).length} choices</div><button class="btn secondary full" onclick="fwHandlerEdit('${field}')">EDIT CHOICES</button></div>`).join('')}
+ <div class="card"><b>Additional buttons</b><div class="tiny muted">Rename the two optional checkboxes without changing their saved values.</div><button class="btn secondary full" onclick="fwHandlerEditFlags()">EDIT BUTTON LABELS</button></div>
+ <button class="btn full" onclick="closeSheet()">DONE</button>`);
+}
+function fwHandlerEdit(field){
+ const cfg=fwHandlerDefaults[field],current=fwHandlerChoices(field);
+ sheet(`<h2>Edit Handler Performance</h2><p class="tiny muted">One choice per line. Existing session history will not be rewritten or deleted.</p>
+ <div class="field"><label>Section title</label><input id="fwHandlerTitle" value="${esc(fwHandlerTitle(field))}"></div>
+ <div class="field"><label>Button choices</label><textarea id="fwHandlerChoices" style="width:100%;min-height:220px;box-sizing:border-box">${esc(current.join('\n'))}</textarea></div>
+ <button class="btn full" onclick="fwHandlerSave('${field}')">SAVE CHOICES</button>
+ <button class="btn secondary full" style="margin-top:8px" onclick="fwHandlerManager()">CANCEL</button>`);
+}
+function fwHandlerSave(field){
+ const title=(document.getElementById('fwHandlerTitle')?.value||'').trim();
+ const choices=[...new Set((document.getElementById('fwHandlerChoices')?.value||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean))];
+ if(!title||!choices.length){alert('Enter a section title and at least one choice.');return}
+ fwHandlerConfig()[field]={title,choices};save();fwHandlerManager();
+ if(nav.session)renderSummary();toast('Handler Performance choices saved ✓');
+}
+function fwHandlerFlagLabel(field){return fwHandlerConfig().flagLabels?.[field]||(field==='innerCritic'?'Inner critic showed up':'Looped afterward')}
+function fwHandlerEditFlags(){
+ sheet(`<h2>Edit Additional Buttons</h2>
+ <div class="field"><label>Inner critic button</label><input id="fwFlagInner" value="${esc(fwHandlerFlagLabel('innerCritic'))}"></div>
+ <div class="field"><label>After-session loop button</label><input id="fwFlagLoop" value="${esc(fwHandlerFlagLabel('afterLoop'))}"></div>
+ <button class="btn full" onclick="fwHandlerSaveFlags()">SAVE BUTTON LABELS</button><button class="btn secondary full" style="margin-top:8px" onclick="fwHandlerManager()">CANCEL</button>`);
+}
+function fwHandlerSaveFlags(){
+ const innerCritic=(document.getElementById('fwFlagInner')?.value||'').trim(),afterLoop=(document.getElementById('fwFlagLoop')?.value||'').trim();
+ if(!innerCritic||!afterLoop){alert('Enter both button labels.');return}
+ fwHandlerConfig().flagLabels={innerCritic,afterLoop};save();fwHandlerManager();
+ if(nav.session)renderSummary();toast('Button labels saved ✓');
+}
 function handlerPick(field,value){syncSummaryFields();nav.session.handlerPerformance=nav.session.handlerPerformance||{};nav.session.handlerPerformance[field]=value;renderSummary()}
 function handlerFlag(field){syncSummaryFields();const h=nav.session.handlerPerformance||(nav.session.handlerPerformance={});h[field]=!h[field];renderSummary()}
-function handlerSessionPanel(s){const h=s.handlerPerformance||{},choose=(label,field,opts)=>`<div style="margin:13px 0"><b>${label}</b><div class="chiprow" style="margin-top:8px">${opts.map(x=>`<button class="btn small ${h[field]===x?'':'secondary'}" style="margin:3px" onclick="handlerPick('${field}',${JSON.stringify(x).replace(/"/g,'&quot;')})">${esc(x)}</button>`).join('')}</div></div>`;
+function handlerSessionPanel(s){const h=s.handlerPerformance||{},choose=(label,field,opts)=>`<div style="margin:13px 0"><b>${label}</b><div class="chiprow" style="margin-top:8px">${[...new Set([...opts,...(h[field]&&!opts.includes(h[field])?[h[field]]:[])])].map(x=>`<button class="btn small ${h[field]===x?'':'secondary'}" style="margin:3px" onclick="handlerPick('${field}',${JSON.stringify(x).replace(/"/g,'&quot;')})">${esc(x)}</button>`).join('')}</div></div>`;
 return `<div class="card" style="border:2px solid #e89bb9;background:linear-gradient(160deg,#fff7fb,#fff)"><div class="kicker">🧠 HANDLER PERFORMANCE · OPTIONAL</div><p class="tiny muted">Your two ratings are separate from Java's coffee and never change her progression.</p>
-${choose('☕ Technical handling','technical',handlerLevels)}
-${choose('☕ Mental performance','mental',mentalLevels)}
-${choose('What triggered pressure?','pressure',pressureChoices)}
-${choose('How did I respond?','response',responseChoices)}
-${choose('Effect on the session','effect',effectChoices)}
-<button class="btn small ${h.innerCritic?'':'secondary'}" onclick="handlerFlag('innerCritic')">${h.innerCritic?'✓ ':''}Inner critic showed up</button>
-<button class="btn small ${h.afterLoop?'':'secondary'}" onclick="handlerFlag('afterLoop')">${h.afterLoop?'✓ ':''}Looped afterward</button>
-<div style="margin-top:12px"><b>What did I learn or change?</b><textarea id="handlerLearning" style="min-height:90px;width:100%;box-sizing:border-box" placeholder="What I noticed, changed, or will try next…">${esc(h.learning||'')}</textarea></div>
+${choose(fwHandlerTitle('technical'),'technical',fwHandlerChoices('technical'))}
+${choose(fwHandlerTitle('mental'),'mental',fwHandlerChoices('mental'))}
+${choose(fwHandlerTitle('pressure'),'pressure',fwHandlerChoices('pressure'))}
+${choose(fwHandlerTitle('response'),'response',fwHandlerChoices('response'))}
+${choose(fwHandlerTitle('effect'),'effect',fwHandlerChoices('effect'))}
+<button class="btn small ${h.innerCritic?'':'secondary'}" onclick="handlerFlag('innerCritic')">${h.innerCritic?'✓ ':''}${esc(fwHandlerFlagLabel('innerCritic'))}</button>
+<button class="btn small ${h.afterLoop?'':'secondary'}" onclick="handlerFlag('afterLoop')">${h.afterLoop?'✓ ':''}${esc(fwHandlerFlagLabel('afterLoop'))}</button>
+<button class="btn secondary full" style="margin-top:12px" onclick="syncSummaryFields();fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button><div style="margin-top:12px"><b>What did I learn or change?</b><textarea id="handlerLearning" style="min-height:90px;width:100%;box-sizing:border-box" placeholder="What I noticed, changed, or will try next…">${esc(h.learning||'')}</textarea></div>
 <div style="margin-top:10px"><b>Additional pressure trigger / observation</b><textarea id="handlerCustom" style="min-height:70px;width:100%;box-sizing:border-box" placeholder="Anything else worth tracking…">${esc(h.custom||'')}</textarea></div></div>`}
 function handlerTrendPanel(ss){const logged=ss.filter(x=>x.handlerPerformance&&(x.handlerPerformance.technical||x.handlerPerformance.mental));if(!logged.length)return `<div class="card"><div class="kicker">🩷 JAVA + HANDLER TRENDS</div><div class="tiny muted">No handler ratings saved yet. Record them in End Session to compare performance here.</div></div>`;
 const num=(v,labels)=>{const n=labels.indexOf(v);return n<0?null:100-n*25};
@@ -1122,7 +1176,7 @@ const javaScore=x=>{const v=String(x.sessionOutcome||x.overallOutcome||x.coffee|
 const series=[{label:'🐕 Java',field:'java',fn:javaScore,color:'#a9587c'},{label:'👤 Technical',field:'technical',fn:x=>num(x.handlerPerformance?.technical,handlerLevels),color:'#ed8ab1'},{label:'🧠 Mental',field:'mental',fn:x=>num(x.handlerPerformance?.mental,mentalLevels),color:'#b77bc2'}];
 const recent=logged.slice(-12),bars=series.map(a=>{const vals=logged.map(a.fn).filter(x=>x!==null),avg=vals.length?Math.round(vals.reduce((x,y)=>x+y,0)/vals.length):null;return `<div style="margin:9px 0"><div class="tiny"><b>${a.label}</b> · ${avg===null?'Not rated':avg+'%'} <span class="muted">(${vals.length} sessions)</span></div><div style="height:13px;border-radius:12px;background:#f5dce7;overflow:hidden"><div style="height:100%;width:${avg||0}%;background:${a.color}"></div></div></div>`}).join('');
 const columns=recent.map(x=>`<div style="min-width:38px;flex:1;text-align:center"><div style="height:96px;display:flex;gap:3px;align-items:flex-end;justify-content:center">${series.map(a=>{const v=a.fn(x);return `<div title="${a.label}: ${v===null?'Not rated':v+'%'}" style="width:9px;height:${v===null?0:v}%;background:${a.color};border-radius:3px 3px 0 0"></div>`}).join('')}</div><div class="tiny muted">${esc(String(x.savedAt||x.date||'').slice(5,10)||'—')}</div></div>`).join('');
-const responses=logged.map(x=>x.handlerPerformance?.response).filter(Boolean),counts=responseChoices.map(x=>({x,n:responses.filter(v=>v===x).length})).filter(x=>x.n);
+const responses=logged.map(x=>x.handlerPerformance?.response).filter(Boolean),counts=[...new Set(responses)].map(x=>({x,n:responses.filter(v=>v===x).length})).filter(x=>x.n);
 return `<div class="card" style="border:2px solid #e89bb9;background:#fff8fb"><div class="kicker">🩷 JAVA + HANDLER PERFORMANCE TRENDS</div><div class="tiny muted">${logged.length} handler-rated sessions · Same saved Component history. Ratings shown on a four-level display scale, not a clinical score.</div>${bars}<b class="tiny">SESSION-BY-SESSION COMPARISON</b><div style="display:flex;gap:5px;margin:12px 0">${columns}</div><div class="tiny muted">Java · dark pink | Technical · pink | Mental · lavender</div><div style="margin-top:13px"><b>Pressure responses</b>${counts.length?counts.map(o=>`<div class="tiny" style="margin:7px 0">${esc(o.x)} · ${o.n}/${responses.length}<div style="height:9px;background:#f5dce7;border-radius:9px"><div style="height:9px;width:${Math.round(o.n/responses.length*100)}%;background:#e88bae;border-radius:9px"></div></div></div>`).join(''):'<div class="tiny muted">No pressure responses logged yet.</div>'}</div><div class="tiny muted">Compare associations across sessions; these patterns do not establish causation.</div></div>`}
 // Build 35: one assessment attached to an existing recorded measurement, not a second observation.
 function fwRecordedMeasurements(s){
