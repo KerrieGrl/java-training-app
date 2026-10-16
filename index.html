@@ -112,7 +112,7 @@ button,.btn,.linkish,.navbtn{-webkit-appearance:none;appearance:none;touch-actio
 /* Index 26 — Current Week execution view */
 .coverageGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.coverageCard{background:#fffaf0;border:1px solid #c9bea6;border-radius:14px;padding:13px;text-align:center}.coverageCard h3{font:800 17px Georgia,serif;margin:0 0 3px;color:#26352c}.coverageCard p{font-size:10px;color:#777064;margin:0 0 10px}.coverageDonut{--pct:0;width:112px;height:112px;border-radius:50%;margin:0 auto 9px;background:conic-gradient(#174a35 calc(var(--pct)*1%),#e8d8dd 0);position:relative}.coverageDonut:after{content:"";position:absolute;inset:20px;border-radius:50%;background:#fffaf0}.coverageDonutText{position:absolute;inset:0;z-index:1;display:grid;place-items:center;font-weight:950;font-size:22px;color:#174a35}.coverageCounts{display:flex;justify-content:center;gap:9px;font-size:10px;font-weight:900;color:#5f594e}.neglectPanel{background:#f8dce6;border:1px solid #d993aa;border-radius:14px;padding:13px;margin:10px 0;color:#652239}.neglectPanel h3{font:800 17px Georgia,serif;margin:0 0 6px}.neglectRow{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid rgba(116,37,63,.18);font-size:11px}.currentWeekToolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 14px}.doneWeekItem{opacity:.68;background:#edf3e9!important}.todoBadge,.doneBadge{display:inline-block;border-radius:999px;padding:4px 7px;font-size:9px;font-weight:950;margin-left:6px}.todoBadge{background:#f8dce6;color:#74253f}.doneBadge{background:#dcebd6;color:#174a35}.exitSessionBtn{border:1px solid #6f8175;background:#18231d;color:#fffaf0;border-radius:10px;padding:9px 10px;font-weight:900;font-size:11px}
 
-/* Build 58: readable randomizer cards in low light and outdoors. */
+/* Build 59: readable randomizer cards in low light and outdoors. */
 .fwFieldResults{display:grid;gap:12px;margin:14px 0}
 .fwFieldResult{background:#193d30;color:#fff;border:2px solid #34634e;border-radius:17px;padding:17px 12px;text-align:center;min-width:0;box-shadow:0 3px 8px rgba(0,0,0,.12)}
 .fwFieldNumber{font-size:clamp(34px,9vw,52px);line-height:1.12;font-weight:950;letter-spacing:.01em;overflow-wrap:anywhere}
@@ -331,25 +331,45 @@ function fwCandidateScore(r,counts,exerciseCounts,weekSeen){const key=r.e.id+'|'
  const rotationBoost=mode==='rotate'&&group.length?((index-rotationIndex+group.length)%group.length)*-14:0;
  return r.goalWeight*15+(r.high?45:0)+(r.building?25:0)+neglected+prefBoost+weekly+rotation+rotationBoost+diversity-exUsed*35-r.r21*4-(fwHistoryWeek(r)/1e13);
 }
-function fwPlaceCandidate(p,days,r,dayOverride=null){const ck=r.e.id+'|'+r.c.id,options=days.filter(d=>(p.days[d.key]||[]).filter(x=>!x.foodTraining).length<d.sessions);if(!options.length)return false;
- const chosen=dayOverride?options.find(d=>d.key===dayOverride):options.slice().sort((a,b)=>{
- const penalty=d=>{const idx=days.findIndex(x=>x.key===d.key),items=p.days[d.key]||[],same=items.filter(x=>x.exerciseId===r.e.id).length,repeat=Object.entries(p.days).some(([k,arr])=>arr.some(x=>x.exerciseId===r.e.id&&x.componentId===r.c.id)&&Math.abs(days.findIndex(z=>z.key===k)-idx)<=1);return same*90+(repeat?160:0)+items.filter(x=>!x.foodTraining).length*10+idx*.01};return penalty(a)-penalty(b)})[0];if(!chosen)return false;
- p.days[chosen.key].push({exerciseId:r.e.id,componentId:r.c.id,exerciseName:r.e.name,componentName:r.c.name,days:r.days,manual:false,locked:false,handler:'Kerrie'});return true}
+function fwPossibleDays(p,days,r,repeat=false){
+ const used=days.flatMap((d,i)=>(p.days[d.key]||[]).filter(x=>!x.foodTraining&&x.exerciseId===r.e.id&&x.componentId===r.c.id).map(()=>i));
+ return days.map((d,i)=>{
+  const items=(p.days[d.key]||[]).filter(x=>!x.foodTraining);
+  if(items.length>=d.sessions||used.includes(i))return null;
+  if(repeat&&used.some(j=>Math.abs(i-j)<2))return null;
+  const same=items.filter(x=>x.exerciseId===r.e.id).length;
+  return {d,score:same*120+items.length*14+(used.length&&Math.min(...used.map(j=>Math.abs(i-j)))<3?45:0)+i*.01};
+ }).filter(Boolean).sort((a,b)=>a.score-b.score);
+}
+function fwPlaceCandidate(p,days,r,dayOverride=null,repeat=false){
+ const choices=fwPossibleDays(p,days,r,repeat),pick=dayOverride?choices.find(x=>x.d.key===dayOverride):choices[0];
+ if(!pick)return false;
+ p.days[pick.d.key].push({exerciseId:r.e.id,componentId:r.c.id,exerciseName:r.e.name,componentName:r.c.name,days:r.days,manual:false,locked:false,handler:'Kerrie'});return true;
+}
 function buildGeneratedWeek(){
  const days=planDays(),cap=days.reduce((n,d)=>n+d.sessions,0),rows=planComponentRows().filter(r=>!(r.c.foodTraining||r.e.foodTraining)),old=generatedPlan();
- const p={createdAt:new Date().toISOString(),weekLabel:planWeekLabel(),days:{},summary:{capacity:cap,desired:0},finalized:false};days.forEach(d=>p.days[d.key]=[]);
- if(old?.days)days.forEach(d=>{p.days[d.key]=(old.days[d.key]||[]).filter(x=>x.locked||x.manual).map(x=>({...x}))});
- const counts=new Map(),exerciseCounts=new Map();Object.values(p.days).flat().filter(x=>!x.foodTraining).forEach(x=>{const k=x.exerciseId+'|'+x.componentId;counts.set(k,(counts.get(k)||0)+1);exerciseCounts.set(x.exerciseId,(exerciseCounts.get(x.exerciseId)||0)+1)});
- // One eligible component per rotating exercise per week; every eligible component for 'all' exercises before optional repeats.
- const eligible=rows.filter(r=>!counts.has(r.e.id+'|'+r.c.id));
- const ordered=eligible.slice().sort((a,b)=>fwCandidateScore(b,counts,exerciseCounts)-fwCandidateScore(a,counts,exerciseCounts));
- for(const r of ordered){if(fwMode(r.e)==='rotate'&&(exerciseCounts.get(r.e.id)||0)>0)continue;if(!fwPlaceCandidate(p,days,r))break;const k=r.e.id+'|'+r.c.id;counts.set(k,1);exerciseCounts.set(r.e.id,(exerciseCounts.get(r.e.id)||0)+1)}
- // Fill any remaining slots by rotating through eligible exercises rather than obeying frequency quotas.
- while(days.some(d=>p.days[d.key].filter(x=>!x.foodTraining).length<d.sessions)){
-  const choices=rows.filter(r=>fwMode(r.e)==='all'||!(exerciseCounts.get(r.e.id)||0)).sort((a,b)=>fwCandidateScore(b,counts,exerciseCounts)-fwCandidateScore(a,counts,exerciseCounts));
-  const pick=choices[0];if(!pick||!fwPlaceCandidate(p,days,pick))break;const k=pick.e.id+'|'+pick.c.id;counts.set(k,(counts.get(k)||0)+1);exerciseCounts.set(pick.e.id,(exerciseCounts.get(pick.e.id)||0)+1);
+ const p={createdAt:new Date().toISOString(),weekLabel:planWeekLabel(),days:{},summary:{capacity:cap,desired:0},finalized:false};
+ days.forEach(d=>p.days[d.key]=(old?.days?.[d.key]||[]).filter(x=>x.locked||x.manual).map(x=>({...x})));
+ const counts=new Map(),exerciseCounts=new Map();
+ Object.values(p.days).flat().filter(x=>!x.foodTraining).forEach(x=>{const k=x.exerciseId+'|'+x.componentId;counts.set(k,(counts.get(k)||0)+1);exerciseCounts.set(x.exerciseId,(exerciseCounts.get(x.exerciseId)||0)+1)});
+ // Distinct eligible work gets considered before any extra exposure.
+ const first=rows.filter(r=>!counts.has(r.e.id+'|'+r.c.id)).sort((a,b)=>fwCandidateScore(b,counts,exerciseCounts)-fwCandidateScore(a,counts,exerciseCounts));
+ for(const r of first){
+  if(fwMode(r.e)==='rotate'&&(exerciseCounts.get(r.e.id)||0)>0)continue;
+  if(!fwPlaceCandidate(p,days,r))continue;
+  const k=r.e.id+'|'+r.c.id;counts.set(k,1);exerciseCounts.set(r.e.id,(exerciseCounts.get(r.e.id)||0)+1);
  }
- addFoodTrainingToWeek(p,days);state.weeklyPlan.generated=p;save();return p
+ // Only after coverage: optional repeats, spaced by at least one full day.
+ let safety=cap+1;
+ while(safety-- >0&&days.some(d=>p.days[d.key].filter(x=>!x.foodTraining).length<d.sessions)){
+  const choices=rows.filter(r=>fwMode(r.e)==='all'&&fwPossibleDays(p,days,r,true).length).sort((a,b)=>{
+   const ca=counts.get(a.e.id+'|'+a.c.id)||0,cb=counts.get(b.e.id+'|'+b.c.id)||0;
+   return ca-cb||fwCandidateScore(b,counts,exerciseCounts)-fwCandidateScore(a,counts,exerciseCounts);
+  });
+  const r=choices[0];if(!r||!fwPlaceCandidate(p,days,r,null,true))break;
+  const k=r.e.id+'|'+r.c.id;counts.set(k,(counts.get(k)||0)+1);exerciseCounts.set(r.e.id,(exerciseCounts.get(r.e.id)||0)+1);
+ }
+ addFoodTrainingToWeek(p,days);state.weeklyPlan.generated=p;save();return p;
 }
 function fwAddToWeek(eid,cid){const p=generatedPlan(),days=planDays(),r=planComponentRows().find(x=>x.e.id===eid&&x.c.id===cid);if(!p||!r)return;
  if(Object.values(p.days).flat().some(x=>!x.foodTraining&&x.exerciseId===eid&&x.componentId===cid)){toast('Already in the week ✓');return}
@@ -624,7 +644,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 58</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 59</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Handler Performance</h3><p class="muted">Edit technical, mental, pressure, response and session-effect choices.</p><button class="btn full" onclick="fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
@@ -1150,7 +1170,7 @@ const mentalLevels=['Clear','Recovered','Struggled','Looped'];
 const pressureChoices=['Unclear / conflicting dog behavior','Repeated unsuccessful reps','Technical criticism / club context','My own expectations','No significant pressure'];
 const responseChoices=['Learner — diagnosed and adjusted','Paused or ended appropriately','Pushed through without a useful adjustment','Got caught in the mental loop'];
 const effectChoices=['Improved','No clear change','Got worse'];
-// Build 58: editable Handler Performance labels and choices; stored independently from training curriculum.
+// Build 59: editable Handler Performance labels and choices; stored independently from training curriculum.
 const fwHandlerDefaults={
  technical:{title:'☕ Technical handling',choices:['Excellent','Solid','Inconsistent','Needs work']},
  mental:{title:'☕ Mental performance',choices:['Clear','Recovered','Struggled','Looped']},
