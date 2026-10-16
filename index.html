@@ -112,7 +112,7 @@ button,.btn,.linkish,.navbtn{-webkit-appearance:none;appearance:none;touch-actio
 /* Index 26 — Current Week execution view */
 .coverageGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.coverageCard{background:#fffaf0;border:1px solid #c9bea6;border-radius:14px;padding:13px;text-align:center}.coverageCard h3{font:800 17px Georgia,serif;margin:0 0 3px;color:#26352c}.coverageCard p{font-size:10px;color:#777064;margin:0 0 10px}.coverageDonut{--pct:0;width:112px;height:112px;border-radius:50%;margin:0 auto 9px;background:conic-gradient(#174a35 calc(var(--pct)*1%),#e8d8dd 0);position:relative}.coverageDonut:after{content:"";position:absolute;inset:20px;border-radius:50%;background:#fffaf0}.coverageDonutText{position:absolute;inset:0;z-index:1;display:grid;place-items:center;font-weight:950;font-size:22px;color:#174a35}.coverageCounts{display:flex;justify-content:center;gap:9px;font-size:10px;font-weight:900;color:#5f594e}.neglectPanel{background:#f8dce6;border:1px solid #d993aa;border-radius:14px;padding:13px;margin:10px 0;color:#652239}.neglectPanel h3{font:800 17px Georgia,serif;margin:0 0 6px}.neglectRow{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid rgba(116,37,63,.18);font-size:11px}.currentWeekToolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 14px}.doneWeekItem{opacity:.68;background:#edf3e9!important}.todoBadge,.doneBadge{display:inline-block;border-radius:999px;padding:4px 7px;font-size:9px;font-weight:950;margin-left:6px}.todoBadge{background:#f8dce6;color:#74253f}.doneBadge{background:#dcebd6;color:#174a35}.exitSessionBtn{border:1px solid #6f8175;background:#18231d;color:#fffaf0;border-radius:10px;padding:9px 10px;font-weight:900;font-size:11px}
 
-/* Build 59: readable randomizer cards in low light and outdoors. */
+/* Build 60: readable randomizer cards in low light and outdoors. */
 .fwFieldResults{display:grid;gap:12px;margin:14px 0}
 .fwFieldResult{background:#193d30;color:#fff;border:2px solid #34634e;border-radius:17px;padding:17px 12px;text-align:center;min-width:0;box-shadow:0 3px 8px rgba(0,0,0,.12)}
 .fwFieldNumber{font-size:clamp(34px,9vw,52px);line-height:1.12;font-weight:950;letter-spacing:.01em;overflow-wrap:anywhere}
@@ -359,15 +359,36 @@ function buildGeneratedWeek(){
   if(!fwPlaceCandidate(p,days,r))continue;
   const k=r.e.id+'|'+r.c.id;counts.set(k,1);exerciseCounts.set(r.e.id,(exerciseCounts.get(r.e.id)||0)+1);
  }
- // Only after coverage: optional repeats, spaced by at least one full day.
+ // Fill remaining slots in preference order: spaced repeats first, then adjacent-day
+ // repeats only when necessary. Never put the same component twice on one day.
+ // Rotate means one selected COMPONENT per exercise this week, not only one session.
  let safety=cap+1;
  while(safety-- >0&&days.some(d=>p.days[d.key].filter(x=>!x.foodTraining).length<d.sessions)){
-  const choices=rows.filter(r=>fwMode(r.e)==='all'&&fwPossibleDays(p,days,r,true).length).sort((a,b)=>{
-   const ca=counts.get(a.e.id+'|'+a.c.id)||0,cb=counts.get(b.e.id+'|'+b.c.id)||0;
-   return ca-cb||fwCandidateScore(b,counts,exerciseCounts)-fwCandidateScore(a,counts,exerciseCounts);
+  const available=rows.filter(r=>{
+   if(fwMode(r.e)!=='rotate')return true;
+   const already=Object.values(p.days).flat().filter(x=>!x.foodTraining&&x.exerciseId===r.e.id);
+   return !already.length||already.some(x=>x.componentId===r.c.id);
   });
-  const r=choices[0];if(!r||!fwPlaceCandidate(p,days,r,null,true))break;
-  const k=r.e.id+'|'+r.c.id;counts.set(k,(counts.get(k)||0)+1);exerciseCounts.set(r.e.id,(exerciseCounts.get(r.e.id)||0)+1);
+  const rank=(r)=>{
+   const key=r.e.id+'|'+r.c.id,used=counts.get(key)||0;
+   return used*1000-fwCandidateScore(r,counts,exerciseCounts)/10;
+  };
+  // Four passes: spaced across exercises, then adjacent only if spacing
+  // would otherwise leave a slot unfilled. Prefer the least-used component.
+  let placed=false;
+  for(const spaced of [true,false]){
+   const choices=available.filter(r=>fwPossibleDays(p,days,r,spaced).length)
+    .sort((a,b)=>rank(a)-rank(b));
+   for(const r of choices){
+    if(!fwPlaceCandidate(p,days,r,null,spaced))continue;
+    const key=r.e.id+'|'+r.c.id;
+    counts.set(key,(counts.get(key)||0)+1);
+    exerciseCounts.set(r.e.id,(exerciseCounts.get(r.e.id)||0)+1);
+    placed=true;break;
+   }
+   if(placed)break;
+  }
+  if(!placed)break;
  }
  addFoodTrainingToWeek(p,days);state.weeklyPlan.generated=p;save();return p;
 }
@@ -644,7 +665,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 59</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 60</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Handler Performance</h3><p class="muted">Edit technical, mental, pressure, response and session-effect choices.</p><button class="btn full" onclick="fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
