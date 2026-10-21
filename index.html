@@ -117,6 +117,8 @@ button,.btn,.linkish,.navbtn{-webkit-appearance:none;appearance:none;touch-actio
 .fwFieldResult{background:#193d30;color:#fff;border:2px solid #34634e;border-radius:17px;padding:17px 12px;text-align:center;min-width:0;box-shadow:0 3px 8px rgba(0,0,0,.12)}
 .fwFieldNumber{font-size:clamp(34px,9vw,52px);line-height:1.12;font-weight:950;letter-spacing:.01em;overflow-wrap:anywhere}
 .fwFieldArticle{font-size:clamp(32px,8vw,48px);font-weight:950;color:#f4d69c;line-height:1.18;text-transform:uppercase;overflow-wrap:anywhere;margin-top:8px}
+
+.fwCoffeeRow > b{max-width:49%;white-space:normal;text-align:right;line-height:1.35;}
 </style>
 <style id="fwCoffeeOverview70">
 .fwCoffeeOverview .fwCoffeeRow,.fwCoffeeOverview .fwRelation,.fwStepsToggle{font:inherit;width:100%;text-align:left;cursor:pointer;border:0;color:inherit;background:transparent}
@@ -656,6 +658,16 @@ function pHero(){return `<div class="progressHero"><img src="java-progress.jpg">
 function pRange(){return `<div class="progressSeg">${[[7,'7 Days'],[30,'30 Days'],[90,'90 Days'],[0,'All']].map(x=>`<button class="${nav.progress.days===x[0]?'active':''}" onclick="pSetRange(${x[0]})">${x[1]}</button>`).join('')}</div>`}
 function pSetRange(d){nav.progress.days=d;renderProgress()}function pOpen(e,c){nav.progress.exerciseId=e;nav.progress.componentId=c;nav.progress.tab='overview';renderProgress();scrollTo(0,0)}function pBack(){nav.progress.exerciseId=null;nav.progress.componentId=null;renderProgress();scrollTo(0,0)}function pTab(t){nav.progress.tab=t;renderProgress();scrollTo(0,0)}
 function pDots(c,i){return `<div class="dots">${c.steps.map((x,n)=>`<i class="dot ${n<i.ci?'done':n===i.ci?(i.kind==='stall'?'stalled':'current'):''}"></i>`).join('')}</div>`}
+function fwCoffeeLevel(sessions){
+ const keys=['god-shot','daily-driver','suspicious-crema','gas-station-tragedy'];
+ const counts=Object.fromEntries(keys.map(k=>[k,0]));
+ sessions.forEach(s=>{const k=fwCoffeeCanonical(sessionCoffee(s));if(k in counts)counts[k]++});
+ const ranked=keys.slice().sort((a,b)=>counts[b]-counts[a]);
+ const top=counts[ranked[0]];
+ if(!top)return 'No ratings';
+ if(counts[ranked[1]]===top)return 'Mixed coffee results';
+ return fwCoffeeLabel(ranked[0]);
+}
 function fwProgressCoffeeOverview(rows){
  const findings=[];let allRated=0;
  rows.forEach(r=>{
@@ -668,10 +680,10 @@ function fwProgressCoffeeOverview(rows){
   const label=esc(r.e.name)+' — '+esc(r.c.name);
   const recentRatings=ss.slice(-6).map(x=>{const key=fwCoffeeCanonical(sessionCoffee(x));return `<img class="fwMiniCoffeeArt" src="${fwCoffeeArt[key]}" alt="${fwCoffeeLabel(key)}" title="${fwCoffeeLabel(key)}">`}).join('');
   const status=difference>=.25?'Improving':difference<=-.25?'Needs attention':'Holding steady';
-  findings.push({r,label,difference,status,number:ss.length,recentRatings});
+  findings.push({r,label,difference,status,coffeeLevel:fwCoffeeLevel(ss),number:ss.length,recentRatings});
  });
  findings.sort((a,b)=>Math.abs(b.difference)-Math.abs(a.difference));
- const cards=findings.map(f=>`<button class="fwCoffeeRow" onclick="pOpen('${f.r.e.id}','${f.r.c.id}')"><span><strong>${f.label}</strong><small>${f.number} rated sessions</small><span class="fwRatingStrip">${f.recentRatings}</span></span><b class="${f.difference>=.25?'fwUp':f.difference<=-.25?'fwDown':'fwEven'}">${f.status} ›</b></button>`).join('');
+ const cards=findings.map(f=>`<button class="fwCoffeeRow" onclick="pOpen('${f.r.e.id}','${f.r.c.id}')"><span><strong>${f.label}</strong><small>${f.number} rated sessions</small><span class="fwRatingStrip">${f.recentRatings}</span></span><b class="${f.difference>=.25?'fwUp':f.difference<=-.25?'fwDown':'fwEven'}">${f.status} / ${esc(f.coffeeLevel)} ›</b></button>`).join('');
  const relations=[];
  // Compare early and recent rated sessions, retaining the underlying counts.
  findings.forEach(f=>{
@@ -819,7 +831,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 69</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 73</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Handler Performance</h3><p class="muted">Edit technical, mental, pressure, response and session-effect choices.</p><button class="btn full" onclick="fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
