@@ -123,7 +123,7 @@ button,.btn,.linkish,.navbtn{-webkit-appearance:none;appearance:none;touch-actio
 .fwCoffeeRow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid #ddd5c5!important}.fwCoffeeRow span{display:flex;flex-direction:column;gap:5px;min-width:0}.fwCoffeeRow strong{font-size:14px}.fwCoffeeRow small{font-size:12px;color:#68665e}.fwCoffeeRow b{font-size:12px;max-width:120px;text-align:right}.fwUp{color:#2d7047}.fwDown{color:#a22c4b}.fwEven{color:#76614b}.fwRelationTitle{font-size:14px;font-weight:900;margin:20px 0 9px}.fwRelation{padding:12px;background:#f7eaf0!important;border-radius:12px;margin-bottom:8px;font-size:13px;line-height:1.5}.fwRelation span{display:block;font-weight:800;margin-top:5px;color:#8a3560}.fwStepsToggle{font-weight:900;display:flex;justify-content:space-between;align-items:center;padding:4px 0 12px;border-bottom:1px solid #ded6c6}.fwStepsToggle span{font-size:12px;font-weight:700;color:#6b6259}
 </style>
 <style id="fwProgress71">
-.fwRatingStrip{display:flex!important;flex-direction:row!important;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap}
+.fwRatingStrip{display:flex!important;flex-direction:row!important;align-items:center;gap:5px;margin-top:6px;flex-wrap:wrap}.fwMiniCoffeeArt{width:29px;height:29px;object-fit:contain;display:block;border-radius:5px;flex:none}
 .fwRatingAsset{width:32px;height:32px;object-fit:contain;border-radius:7px;background:#fff6f0;border:1px solid #e9d9d7}
 .fwCoffeeOverview .fwCoffeeRow small{display:block}
 .fwCoffeeOverview .fwRelation{display:block;border:1px solid #ead4dc!important}
@@ -666,8 +666,7 @@ function fwProgressCoffeeOverview(rows){
   const good=a=>a.filter(pGood).length/a.length;
   const difference=good(newer)-good(older);
   const label=esc(r.e.name)+' — '+esc(r.c.name);
-  const emoji=x=>({'god-shot':'👑','daily-driver':'☕','suspicious-crema':'🤨','gas-station-tragedy':'😵'})[fwCoffeeCanonical(sessionCoffee(x))]||'·';
-  const recentRatings=ss.slice(-6).map(emoji).join(' ');
+  const recentRatings=ss.slice(-6).map(x=>{const key=fwCoffeeCanonical(sessionCoffee(x));return `<img class="fwMiniCoffeeArt" src="${fwCoffeeArt[key]}" alt="${fwCoffeeLabel(key)}" title="${fwCoffeeLabel(key)}">`}).join('');
   const status=difference>=.25?'Improving':difference<=-.25?'Needs attention':'Holding steady';
   findings.push({r,label,difference,status,number:ss.length,recentRatings});
  });
