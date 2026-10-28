@@ -522,16 +522,20 @@ function fwPlannedLaneBreakdownHTML(p){
  const all=Object.values(p?.days||{}).flat(),exercises=state.exercises||[];
  const colors=['#285541','#d88bab','#c7a052','#7799ba','#a27db5','#c77a63','#5b9d92','#bc9a7e'];
  const foodOf=x=>{const e=exercises.find(e=>e.id===x.exerciseId),c=e?.components?.find(c=>c.id===x.componentId);return !!(e?.foodTraining||c?.foodTraining||x.foodTraining)};
+ const days=planDays();
  const chart=isFood=>{
   const items=all.filter(x=>foodOf(x)===isFood),total=items.length;
+  const capacity=days.reduce((n,d)=>n+(isFood?foodSlotsForDay(d.key):Math.max(0,d.sessions)),0);
+  const remaining=Math.max(0,capacity-total);
+  const over= Math.max(0,total-capacity);
   const eligibleFood=new Set(foodPlanningRows().map(r=>r.e.id));
   const eligibleRegular=new Set(planComponentRows().filter(r=>!r.e.foodTraining&&!r.c.foodTraining).map(r=>r.e.id));
   const rows=exercises.filter(e=>isFood?eligibleFood.has(e.id):eligibleRegular.has(e.id)).map(e=>({id:e.id,name:e.name,n:items.filter(x=>x.exerciseId===e.id).length}));
   let pos=0;
   const gradient=total?rows.map((r,i)=>{const a=pos;pos+=r.n/total*100;return r.n?`${colors[i%colors.length]} ${a}% ${pos}%`:null}).filter(Boolean).join(','):'#e5dce1 0% 100%';
-  return `<div style="border:1px solid #ecdce5;border-radius:14px;padding:12px;margin-top:12px"><h4 style="margin:0;color:#224b3a">${isFood?'🍖 FOOD TRAINING':'🐕 REGULAR TRAINING'}</h4><p class="tiny">Planned exercise breakdown · ${total} assignment${total===1?'':'s'}</p><div style="width:145px;height:145px;border-radius:50%;margin:12px auto;background:conic-gradient(${gradient});display:grid;place-items:center"><div style="background:#fff9fc;width:85px;height:85px;border-radius:50%;display:grid;place-items:center;text-align:center;font-weight:900;font-size:23px">${total}<small style="font-size:9px;display:block">PLANNED</small></div></div>${rows.length?rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid #ecdce5"><span style="width:13px;height:13px;background:${colors[i%colors.length]};border-radius:4px;flex:none"></span><span style="flex:1;font-weight:800">${esc(r.name)}</span><b>${r.n}</b><button class="btn small secondary" style="margin-left:5px;white-space:nowrap" onclick="${isFood?'fwFoodQuickAdd':'fwRegularQuickAdd'}('${r.id}')">＋ ADD</button></div>`).join(''):'<p class="tiny">Nothing planned in this category yet.</p>'}</div>`;
+  return `<div style="border:1px solid #ecdce5;border-radius:14px;padding:12px;margin-top:12px"><h4 style="margin:0;color:#224b3a">${isFood?'🍖 FOOD TRAINING':'🐕 REGULAR TRAINING'}</h4><p class="tiny">${capacity} total slots · ${total} assigned · <b>${remaining} OPEN / UNASSIGNED</b>${over?` · ${over} over capacity`:''}</p><div style="width:145px;height:145px;border-radius:50%;margin:12px auto;background:conic-gradient(${gradient});display:grid;place-items:center"><div style="background:#fff9fc;width:85px;height:85px;border-radius:50%;display:grid;place-items:center;text-align:center;font-weight:900;font-size:23px">${total}<small style="font-size:9px;display:block">PLANNED</small></div></div>${rows.length?rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid #ecdce5"><span style="width:13px;height:13px;background:${colors[i%colors.length]};border-radius:4px;flex:none"></span><span style="flex:1;font-weight:800">${esc(r.name)}</span><b>${r.n}</b><button class="btn small secondary" style="margin-left:5px;white-space:nowrap" onclick="${isFood?'fwFoodQuickAdd':'fwRegularQuickAdd'}('${r.id}')">＋ ADD</button></div>`).join(''):'<p class="tiny">Nothing planned in this category yet.</p>'}</div>`;
  };
- return `<div class="card" style="background:#fff9fc;color:#224b3a;border:2px solid #e8b9d0;margin-top:12px"><h3>PLANNED BY TRAINING TYPE</h3><p class="tiny">Food and regular training shown separately from the overall chart.</p>${chart(false)}${chart(true)}</div>`;
+ return `<div class="card" style="background:#fff9fc;color:#224b3a;border:2px solid #e8b9d0;margin-top:12px"><h3>PLANNED BY TRAINING TYPE</h3><p class="tiny">Live slot counts for this week · updates as you assign, remove, or change daily capacity.</p>${chart(false)}${chart(true)}</div>`;
 }
 function fwPlannedComponentInfo(eid,cid){
  const e=(state.exercises||[]).find(x=>x.id===eid),c=e?.components?.find(x=>x.id===cid);
@@ -854,7 +858,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 80</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 81</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Handler Performance</h3><p class="muted">Edit technical, mental, pressure, response and session-effect choices.</p><button class="btn full" onclick="fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
