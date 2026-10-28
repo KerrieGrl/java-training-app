@@ -831,7 +831,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 77</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 79</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Handler Performance</h3><p class="muted">Edit technical, mental, pressure, response and session-effect choices.</p><button class="btn full" onclick="fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
@@ -1118,16 +1118,20 @@ function fwTrackingDetective(e,c){
 // Build 74: per-article tracking observations, independent of the overall session coffee.
 function fwTrackingPanel(s){
  const layouts=Object.entries(s.fwLockedLayouts||{}).filter(([id,l])=>Array.isArray(l.articles)&&l.articles.length);
- if(!layouts.length)return '';
+ // Conditions must remain visible for tracking even before a layout is locked.
+ // A missing or stale layout must never hide the entire recording form.
+ const isTracking=/track/i.test([s.exerciseName,s.componentName].filter(Boolean).join(' '));
+ if(!layouts.length&&!isTracking)return '';
  const c=s.fwTrackingConditions||{};
  const field=(label,key,options)=>{const choices=[...new Set([...options,...(state.libraries.trackingChoices?.[key]||[]),...(c[key]?[c[key]]:[])])];return `<div class="field"><label>${label}</label><select onchange="fwTrackingChooseCondition('${key}',this.value)"><option value="">Not recorded</option>${choices.map(v=>`<option value="${esc(v)}" ${c[key]===v?'selected':''}>${esc(v)}</option>`).join('')}<option value="__custom__">＋ Add my own choice…</option></select></div>`};
  const locationChoices=[...new Set([...(state.libraries.trackingChoices?.location||[]),...(c.location?[c.location]:[])])];
  const locationField=`<div class="field"><label>Tracking location</label><input list="fwTrackingLocationOptions" value="${esc(c.location||'')}" placeholder="Type a location or choose a previous one" onchange="fwTrackingSaveTyped('location',this.value)"><datalist id="fwTrackingLocationOptions">${locationChoices.map(v=>`<option value="${esc(v)}"></option>`).join('')}</datalist></div>`;
- let html=`<details class="card" open style="border:2px solid #d88aa0;background:#fff8fb"><summary style="cursor:pointer;font-weight:900">TRACKING · CONDITIONS & ARTICLE RESULTS</summary><p class="tiny muted">Conditions apply to this session. Article results are separate from the overall session coffee rating. Changes save to the unfinished session.</p>${locationField}${field('Time of day','timeOfDay',['Day','Night','Dawn','Dusk'])}<div class="field"><label>Temperature (°F)</label><input type="number" value="${esc(c.temperature??'')}" onchange="fwTrackingSetCondition('temperature',this.value)" placeholder="°F"></div>${field('Weather','weather',['Sunny','Partly cloudy','Cloudy','Rain','After rain'])}${field('Wind','wind',['Calm','Light','Moderate','Strong'])}${field('Ground moisture','moisture',['Dry','Damp','Wet','Saturated'])}<div class="field"><label>Vegetation / surface</label><input value="${esc(c.surface||'')}" onchange="fwTrackingSetCondition('surface',this.value)" placeholder="Grass, dirt, mixed…"></div><div class="field"><label>Track age (minutes)</label><input type="number" min="0" value="${esc(c.trackAge??'')}" onchange="fwTrackingSetCondition('trackAge',this.value)"></div><div class="field"><label>Track number / identifier</label><input value="${esc(c.trackNumber||'')}" onchange="fwTrackingSetCondition('trackNumber',this.value)"></div>`;
+ let html=`<details class="card" data-fw-tracking-panel="true" open style="border:2px solid #d88aa0;background:#fff8fb"><summary style="cursor:pointer;font-weight:900">TRACKING · CONDITIONS & ARTICLE RESULTS</summary><p class="tiny muted">Conditions apply to this session. Article results are separate from the overall session coffee rating. Changes save to the unfinished session.</p>${locationField}${field('Time of day','timeOfDay',['Day','Night','Dawn','Dusk'])}<div class="field"><label>Temperature (°F)</label><input type="number" value="${esc(c.temperature??'')}" onchange="fwTrackingSetCondition('temperature',this.value)" placeholder="°F"></div>${field('Weather','weather',['Sunny','Partly cloudy','Cloudy','Rain','After rain'])}${field('Wind','wind',['Calm','Light','Moderate','Strong'])}${field('Ground moisture','moisture',['Dry','Damp','Wet','Saturated'])}<div class="field"><label>Vegetation / surface</label><input value="${esc(c.surface||'')}" onchange="fwTrackingSetCondition('surface',this.value)" placeholder="Grass, dirt, mixed…"></div><div class="field"><label>Track age (minutes)</label><input type="number" min="0" value="${esc(c.trackAge??'')}" onchange="fwTrackingSetCondition('trackAge',this.value)"></div><div class="field"><label>Track number / identifier</label><input value="${esc(c.trackNumber||'')}" onchange="fwTrackingSetCondition('trackNumber',this.value)"></div>`;
  for(const [id,layout] of layouts){let plannedTotal=0,actualTotal=0;html+=`<h3>${esc(layout.toolName||'Article layout')}</h3>`;layout.articles.forEach((a,i)=>{
  const k=id+':'+i,obs=s.fwArticleObservations?.[k]||{};plannedTotal+=Number(a.steps)||0;const actual=obs.actualSteps===''||obs.actualSteps==null?Number(a.steps)||0:Number(obs.actualSteps);actualTotal+=actual;
  html+=`<div style="border:1px solid #e4c9d4;border-radius:12px;padding:12px;margin:10px 0;background:#fff"><b>Article ${i+1} · ${esc(a.material||'Unknown material')}</b><div class="tiny muted">Planned: ${a.steps} steps from ${i?'previous article':'track start'} · planned position ${plannedTotal}</div><div class="field"><label>Actual steps from ${i?'previous article':'track start'}</label><input type="number" min="0" step="1" value="${esc(obs.actualSteps??a.steps)}" onchange="fwTrackingSetArticle('${id}',${i},'actualSteps',this.value)"><div class="tiny muted">Actual cumulative position: ${actualTotal} steps</div></div><div class="field"><label>Article outcome</label><select onchange="fwTrackingSetArticle('${id}',${i},'outcome',this.value)">${[['','Not recorded'],['independent','Independent indication'],['sloppy','Sloppy indication'],['helped','Handler helped'],['missed','Missed article'],['false','False indication'],['unreached','Article not reached']].map(([v,label])=>`<option value="${v}" ${obs.outcome===v?'selected':''}>${label}</option>`).join('')}</select></div><div class="field"><label>Article coffee rating (optional)</label><select onchange="fwTrackingSetArticle('${id}',${i},'coffee',this.value)">${[['','Not rated'],['god-shot','The God Shot'],['daily-driver','The Daily Driver'],['suspicious-crema','The Suspicious Crema'],['gas-station-tragedy','The Gas Station Tragedy']].map(([v,label])=>`<option value="${v}" ${obs.coffee===v?'selected':''}>${label}</option>`).join('')}</select></div><div class="field"><label>Article notes (optional)</label><textarea style="min-height:55px" onchange="fwTrackingSetArticle('${id}',${i},'note',this.value)">${esc(obs.note||'')}</textarea></div></div>`;
  });}
+ if(!layouts.length)html+=`<p class="tiny muted" style="padding:10px;background:#fff;border-radius:8px">No locked article layout is connected to this session yet. You can record tracking conditions now. Lock a generated article layout above to enter individual article results.</p>`;
  return html+`<p class="tiny muted">An unreached article is not counted as a missed indication. The original generated layout stays intact.</p></details>`;
 }
 function fwTrackingSetCondition(key,value){const s=nav.session;if(!s)return;s.fwTrackingConditions=s.fwTrackingConditions||{};s.fwTrackingConditions[key]=value;fwPersistLayoutDraft()}
@@ -1156,7 +1160,15 @@ function fwLockLayout(id){
  const s=nav.session;if(!s||!s.fwPendingLayouts?.[id])return;
  s.fwLockedLayouts=s.fwLockedLayouts||{};
  s.fwLockedLayouts[id]={articles:s.fwPendingLayouts[id].map(a=>({...a})),lockedAt:new Date().toISOString(),toolName:findTool(id)?.name||''};
- delete s.fwPendingLayouts[id];fwPersistLayoutDraft();renderSummary();toast('Article layout locked and saved 🔒');
+ delete s.fwPendingLayouts[id];
+ // Locking must update the VISIBLE screen, not only the hidden summary DOM.
+ // Keep the unfinished session and its observations intact during navigation.
+ if(nav.screen==='summaryScreen')syncSummaryFields();
+ fwPersistLayoutDraft();
+ if(nav.screen!=='summaryScreen')show('summaryScreen');else renderSummary();
+ const panel=document.querySelector('#summaryScreen details[data-fw-tracking-panel]');
+ if(panel){panel.open=true;panel.scrollIntoView({block:'start',behavior:'auto'});}
+ toast('Article layout locked — article recording is ready 🔒');
 }
 function fwEditLayoutArticle(id,i){
  const layout=fwLayoutFor(id),a=layout?.articles?.[i];if(!a)return;
@@ -1238,7 +1250,7 @@ function generateRandom(id){
   if(hasSecond)layoutArticles.push({steps:n,material:second});
  }
  const el=document.getElementById('toolout-'+id);if(el)el.innerHTML=fwBigRandomResults(out);
- if(layoutArticles.length){nav.session.fwPendingLayouts=nav.session.fwPendingLayouts||{};nav.session.fwPendingLayouts[id]=layoutArticles;if(el)el.innerHTML=fwPendingLayoutUI(id)}
+ if(layoutArticles.length){nav.session.fwPendingLayouts=nav.session.fwPendingLayouts||{};nav.session.fwPendingLayouts[id]=layoutArticles;fwPersistLayoutDraft();if(el)el.innerHTML=fwPendingLayoutUI(id)}
 }
 function preserveLiveNote(){if(nav.session){const el=document.getElementById('liveNotes');if(el)nav.session.note=el.value}}
 function exitSession(){if(!nav.session){show('trainScreen');return}preserveLiveNote();const hasWork=!!((nav.session.note||'').trim()||(nav.session.reps||[]).length||(nav.session.interferences||[]).length||sessionCoffee(nav.session));if(!hasWork){nav.session=null;nav.training=null;show('trainScreen');return}sheet(`<h2>Leave this session?</h2><p class="muted">You have unsaved session work.</p><button class="btn full" onclick="closeSheet()">KEEP SESSION</button><button class="btn danger full" style="margin-top:9px" onclick="discardSession()">DISCARD SESSION</button>`)}
