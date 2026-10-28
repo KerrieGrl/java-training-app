@@ -235,6 +235,28 @@ function planDays(){
  const availability=saved.availability||'Available',def=availability==='Away / Limited'?Number(state.settings?.planningDefaultLimitedSlots??1):Number(state.settings?.planningDefaultAvailableSlots??2); return {key,date:d,sessions:Number(saved.sessions??def),availability} })
 }
 
+function foodSlotsForDay(dayKey){
+ const saved=planSetup().days[dayKey]||{};
+ return Math.max(0,Number(saved.foodSlots??state.settings?.foodTrainingPerDay??2));
+}
+function setFoodSlotsForDay(dayKey,value){
+ const n=Math.max(0,Math.min(6,Number(value)||0)),setup=planSetup();
+ setup.days[dayKey]=setup.days[dayKey]||{};
+ setup.days[dayKey].foodSlots=n;
+ const p=generatedPlan();
+ if(p){
+  const items=p.days?.[dayKey]||[];
+  let food=items.filter(x=>x.foodTraining);
+  let excess=Math.max(0,food.length-n);
+  // Only automatic suggestions may be discarded; never silently erase a person's edits.
+  for(let i=items.length-1;i>=0&&excess>0;i--){
+   if(items[i].foodTraining&&!items[i].manual&&!items[i].locked){items.splice(i,1);excess--}
+  }
+  if(excess>0)toast('Manual or locked food work kept; remove it if this day should be empty');
+  markPlanEdited();
+ }
+ save();renderPlan();
+}
 function planningFrequency(c){
  const f=c?.frequency;
  if(f&&typeof f==='object'){
@@ -293,8 +315,8 @@ function openFoodPlanPicker(dayKey,itemIndex){const host=document.getElementById
 function chooseFoodPlanWork(dayKey,itemIndex,eid,cid){const p=generatedPlan();if(!p)return;const e=(state.exercises||[]).find(x=>x.id===eid),c=e?.components?.find(x=>x.id===cid);if(!e||!c||!(c.foodTraining||e.foodTraining))return;const duplicate=(p.days[dayKey]||[]).some((x,ix)=>x.foodTraining&&ix!==itemIndex&&x.exerciseId===eid&&x.componentId===cid);if(duplicate){toast('That food work is already on this day');return}const r=planComponentRows().find(x=>x.e.id===eid&&x.c.id===cid);p.days[dayKey]=p.days[dayKey]||[];const prior=itemIndex===null?null:p.days[dayKey][itemIndex],item={exerciseId:e.id,componentId:c.id,exerciseName:e.name,componentName:c.name,days:r?.days??999,freq:r?.freq||0,manual:true,locked:prior?.locked||false,handler:prior?.handler||'Kerrie',foodTraining:true};if(itemIndex===null)p.days[dayKey].push(item);else p.days[dayKey][itemIndex]=item;markPlanEdited();save();closePlanPicker();renderPlan();toast('Food slot updated ✓')}
 function foodPlanningRows(){return planComponentRows().filter(r=>r.c.foodTraining||r.e.foodTraining)}
 function addFoodTrainingToWeek(p,days){
- const perDay=Math.max(0,Number(state.settings?.foodTrainingPerDay??2)),foodRows=foodPlanningRows();
- if(!perDay||!foodRows.length)return;
+ const foodRows=foodPlanningRows();
+ if(!foodRows.length)return;
  const foodCounts=new Map(),plannedDays=new Map();
  // Existing manual/locked assignments in EITHER lane count as real planned exposure for spacing.
  days.forEach((d,di)=>(p.days[d.key]||[]).forEach(x=>{
@@ -306,7 +328,7 @@ function addFoodTrainingToWeek(p,days){
  days.forEach((d,di)=>{
   const dayFood=new Set((p.days[d.key]||[]).filter(x=>x.foodTraining).map(x=>x.exerciseId+'|'+x.componentId));
   const existingFood=(p.days[d.key]||[]).filter(x=>x.foodTraining).length;
-  for(let slot=existingFood;slot<perDay;slot++){
+  for(let slot=existingFood;slot<foodSlotsForDay(d.key);slot++){
    const choices=foodRows.filter(r=>!dayFood.has(r.e.id+'|'+r.c.id)).map(r=>{
     const key=r.e.id+'|'+r.c.id,count=foodCounts.get(key)||0,exposures=plannedDays.get(key)||[];
     const recentPenalty=r.tw*18+r.r21*4;
@@ -450,16 +472,16 @@ function fwFoodQuickAdd(eid){
  const host=document.getElementById('planScreen');if(!host)return;
  const ov=document.createElement('div');ov.className='pickOverlay';ov.id='planPickOverlay';
  const all=Object.values(p.days||{}).flat();
- ov.innerHTML=`<div class="pickSheet"><div style="display:flex;justify-content:space-between;align-items:center"><h3>🍖 ADD ${esc(e.name)} FOOD WORK</h3><button class="pickClose" onclick="closePlanPicker()">×</button></div><div class="planLead" style="text-align:left;margin:0 0 8px">Choose a component. FIELDWORK will find an open food slot.</div>${rows.map(r=>{const n=all.filter(x=>x.foodTraining&&x.exerciseId===eid&&x.componentId===r.c.id).length;return `<button class="pickOption" onclick="fwFoodQuickPlace('${eid}','${r.c.id}')"><b>${esc(r.c.name)}</b><small>${n} planned this week</small></button>`}).join('')}</div>`;
+ ov.innerHTML=`<div class="pickSheet"><div style="display:flex;justify-content:space-between;align-items:center"><h3>🍖 ADD ${esc(e.name)} FOOD WORK</h3><button class="pickClose" onclick="closePlanPicker()">×</button></div><div class="planLead" style="text-align:left;margin:0 0 8px">Choose a component. FIELDWORK will use only days with open food slots.</div>${rows.map(r=>{const n=all.filter(x=>x.foodTraining&&x.exerciseId===eid&&x.componentId===r.c.id).length;return `<button class="pickOption" onclick="fwFoodQuickPlace('${eid}','${r.c.id}')"><b>${esc(r.c.name)}</b><small>${n} planned this week</small></button>`}).join('')}</div>`;
  host.appendChild(ov);
 }
 function fwFoodQuickPlace(eid,cid){
- const p=generatedPlan(),days=planDays(),perDay=Math.max(0,Number(state.settings?.foodTrainingPerDay??2));
+ const p=generatedPlan(),days=planDays();
  const r=foodPlanningRows().find(r=>r.e.id===eid&&r.c.id===cid);
  if(!p||!r)return;
  const used=days.map((d,i)=>({d,i,items:p.days[d.key]||[]}));
  const existing=used.filter(z=>z.items.some(x=>x.foodTraining&&x.exerciseId===eid&&x.componentId===cid)).map(z=>z.i);
- const options=used.filter(z=>z.items.filter(x=>x.foodTraining).length<perDay&&!existing.includes(z.i))
+ const options=used.filter(z=>z.items.filter(x=>x.foodTraining).length<foodSlotsForDay(z.d.key)&&!existing.includes(z.i))
   .map(z=>({...z,dist:existing.length?Math.min(...existing.map(i=>Math.abs(i-z.i))):7,exercise:z.items.filter(x=>x.foodTraining&&x.exerciseId===eid).length,filled:z.items.filter(x=>x.foodTraining).length}))
   .sort((a,b)=>b.dist-a.dist||a.exercise-b.exercise||a.filled-b.filled||a.i-b.i);
  if(!options.length){closePlanPicker();toast('No open food slots for this component · nothing replaced');return}
@@ -536,7 +558,7 @@ function renderGeneratedWeek(el){
  ${p.finalized?`<div class="planFinalNote">✓ THIS WEEK IS FINALIZED. You can still edit it; FIELDWORK will mark it changed until you finalize again.</div>`:''}
  ${neg.length?`<div class="dontLose"><h3>DON'T LOSE THESE</h3><p>Active components that have been quiet long enough to deserve attention.</p>${neg.map(r=>`<div class="loseItem"><b>${esc(r.e.name)} → ${esc(r.c.name)}</b><span>${r.days===999?'NO RECORDED SESSION':r.days+' DAYS'}</span><button class="btn small secondary" onclick="fwAddToWeek('${r.e.id}','${r.c.id}')">+ WEEK</button></div>`).join('')}</div>`:''}
  ${(()=>{const missing=notScheduledThisWeekRows(p);return `<div class="dontLose"><h3>NOT SCHEDULED THIS WEEK</h3><p>Eligible active work with no regular or food assignment anywhere in this week's plan.</p>${missing.length?missing.map(r=>`<div class="loseItem"><b>${esc(r.e.name)} → ${esc(r.c.name)}</b><span>${r.c.status||r.e.status}${r.high?' · HIGH':' · NORMAL'} · ${r.days===999?'NO SESSION':r.days===0?'TODAY':r.days+' DAYS'}</span></div>`).join(''):`<div class="tiny" style="padding-top:8px">Everything eligible is represented this week. ✓</div>`}</div>`})()}
- ${days.map(d=>{const indexed=(p.days[d.key]||[]).map((x,ix)=>({x,ix})),regular=indexed.filter(z=>!z.x.foodTraining),food=indexed.filter(z=>z.x.foodTraining),regularOpen=Math.max(0,d.sessions-regular.length),foodOpen=Math.max(0,foodPerDay-food.length);return `<div class="weekDayCard"><div class="weekDayHead"><b>${d.date.toLocaleDateString(undefined,{weekday:'long'})}</b><span>${d.sessions} ${d.sessions===1?'REGULAR SLOT':'REGULAR SLOTS'} · ${esc(d.availability)}</span></div><div class="tiny" style="font-weight:900;letter-spacing:.08em;margin:8px 0 6px">REGULAR TRAINING</div>${regular.map(z=>itemCard(d,z.x,z.ix)).join('')}${Array.from({length:regularOpen},()=>`<button class="chooseBtn" onclick="openPlanPicker('${d.key}',null)">＋ OPEN REGULAR SLOT</button>`).join('')}${d.sessions===0?`<div class="emptySlot">No regular training slots</div>`:''}<div class="tiny" style="font-weight:900;letter-spacing:.08em;margin:16px 0 6px">🍖 FOOD TRAINING · ${foodPerDay} ${foodPerDay===1?'OPPORTUNITY':'OPPORTUNITIES'}</div>${food.map(z=>itemCard(d,z.x,z.ix)).join('')}${Array.from({length:foodOpen},()=>`<button class="chooseBtn" onclick="openFoodPlanPicker('${d.key}',null)">＋ OPEN FOOD SLOT</button>`).join('')}${foodPerDay===0?`<div class="emptySlot">Food training is off</div>`:''}</div>`}).join('')}
+ ${days.map(d=>{const indexed=(p.days[d.key]||[]).map((x,ix)=>({x,ix})),regular=indexed.filter(z=>!z.x.foodTraining),food=indexed.filter(z=>z.x.foodTraining),regularOpen=Math.max(0,d.sessions-regular.length),foodDaySlots=foodSlotsForDay(d.key),foodOpen=Math.max(0,foodDaySlots-food.length);return `<div class="weekDayCard"><div class="weekDayHead"><b>${d.date.toLocaleDateString(undefined,{weekday:'long'})}</b><span>${d.sessions} ${d.sessions===1?'REGULAR SLOT':'REGULAR SLOTS'} · ${esc(d.availability)}</span></div><div class="tiny" style="font-weight:900;letter-spacing:.08em;margin:8px 0 6px">REGULAR TRAINING</div>${regular.map(z=>itemCard(d,z.x,z.ix)).join('')}${Array.from({length:regularOpen},()=>`<button class="chooseBtn" onclick="openPlanPicker('${d.key}',null)">＋ OPEN REGULAR SLOT</button>`).join('')}${d.sessions===0?`<div class="emptySlot">No regular training slots</div>`:''}<div class="tiny" style="font-weight:900;letter-spacing:.08em;margin:16px 0 6px">🍖 FOOD TRAINING · <select aria-label="Food slots for ${d.date.toLocaleDateString(undefined,{weekday:'long'})}" onchange="setFoodSlotsForDay('${d.key}',this.value)" style="font:inherit;border:1px solid #d88aa0;border-radius:7px;padding:3px 5px;background:white">${[0,1,2,3,4,5,6].map(n=>`<option value="${n}" ${foodDaySlots===n?'selected':''}>${n} ${n===1?'slot':'slots'}</option>`).join('')}</select></div>${food.map(z=>itemCard(d,z.x,z.ix)).join('')}${Array.from({length:foodOpen},()=>`<button class="chooseBtn" onclick="openFoodPlanPicker('${d.key}',null)">＋ OPEN FOOD SLOT</button>`).join('')}${foodDaySlots===0?`<div class="emptySlot">No food training planned for this day</div>`:''}</div>`}).join('')}
  ${fwPlannedBalanceHTML(p)}${fwPlannedLaneBreakdownHTML(p)}${rotationShelf()}<button class="planSecondary" onclick="regenerateWeek()">↻ REGENERATE — KEEP MY EDITS</button><button class="planFinal ${p.finalized?'done':''}" onclick="finalizeGeneratedWeek()">${p.finalized?'✓ WEEK FINALIZED':'FINALIZE THIS WEEK'}</button><button class="adamExportBtn" onclick="openAdamAssignmentSheet()">ADAM'S ASSIGNMENT SHEET</button></div>`
 }
 
@@ -612,11 +634,12 @@ function renderPlanSetup(el){
  <div class="planBrand" style="margin-top:-22px">🐕 FIELDWORK</div>
  <div class="planPaper">
    <h1 class="planTitle">Set Up This Week</h1>
-   <div class="planLead">Tell FIELDWORK how many training opportunities you expect to have each day. This can be completely different next week.</div>
+   <div class="planLead">Set regular and 🍖 food slots separately for each day. Set food to 0 on days Adam isn't training.</div>
    <div class="weekNav"><button onclick="shiftPlanWeek(-1)">‹</button><div class="weekDates">${esc(planWeekLabel())}</div><button onclick="shiftPlanWeek(1)">›</button></div>
    ${days.map(d=>`<div class="capacityRow ${d.availability==='Away / Limited'?'away':''}">
       <div class="dayName"><b>${d.date.toLocaleDateString(undefined,{weekday:'short'})}</b><small>${d.date.toLocaleDateString(undefined,{month:'numeric',day:'numeric'})}</small></div>
       <select aria-label="Training sessions" onchange="setPlanDay('${d.key}','sessions',this.value)">${[0,1,2,3,4,5,6].map(n=>`<option value="${n}" ${d.sessions===n?'selected':''}>${n} ${n===1?'slot':'slots'}</option>`).join('')}</select>
+      <select aria-label="Food training slots" onchange="setFoodSlotsForDay('${d.key}',this.value)">${[0,1,2,3,4,5,6].map(n=>`<option value="${n}" ${foodSlotsForDay(d.key)===n?'selected':''}>🍖 ${n} food</option>`).join('')}</select>
       <select aria-label="Availability" onchange="setPlanDay('${d.key}','availability',this.value)"><option ${d.availability==='Available'?'selected':''}>Available</option><option ${d.availability==='Away / Limited'?'selected':''}>Away / Limited</option></select>
    </div>`).join('')}
    <div class="setupTotal"><span>Training capacity this week</span><b>${total}</b></div>
@@ -831,7 +854,7 @@ function fwCatalogSave(id){
 
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 79</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 80</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Handler Performance</h3><p class="muted">Edit technical, mental, pressure, response and session-effect choices.</p><button class="btn full" onclick="fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
