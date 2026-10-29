@@ -856,11 +856,28 @@ function fwCatalogSave(id){
  save();fwRefreshObservationChoices();fwCatalogManager();toast('Observation and answers saved · Record Session refreshed ✓');
 }
 
+// Handler Warm Up: reusable, plain-text routines independent of curriculum steps.
+function fwWarmups(){return libraryItems('handlerWarmups')}
+function fwWarmupManager(){
+ const rows=fwWarmups();
+ sheet(`<h2>🐾 Handler Warm Up</h2><p class="muted">Save a routine once, then attach it to exercises or select it during a session.</p>${rows.map(r=>`<div class="listrow"><div class="grow"><b>${esc(r.name)}</b><div class="tiny muted">${(r.exerciseIds||[]).length} exercises attached</div></div><button class="btn small secondary" onclick="fwWarmupEdit('${r.id}')">EDIT</button><button class="btn small danger" onclick="fwWarmupDelete('${r.id}')">DELETE</button></div>`).join('')||'<div class="empty">No warm-ups saved yet.</div>'}<button class="btn full" onclick="fwWarmupEdit()">+ ADD HANDLER WARM UP</button>`);
+}
+function fwWarmupEdit(id){
+ const r=fwWarmups().find(x=>x.id===id)||{id:'',name:'',steps:'',exerciseIds:[]};
+ sheet(`<h2>${id?'Edit':'Add'} Handler Warm Up</h2><div class="field"><label>Name</label><input id="fwWarmName" value="${esc(r.name)}" placeholder="e.g. Heeling Handler Warm-Up"></div><div class="field"><label>Steps / instructions</label><textarea id="fwWarmSteps" style="width:100%;box-sizing:border-box;min-height:300px" placeholder="Paste the complete warm-up here">${esc(r.steps)}</textarea></div><div class="field"><label>Automatically attach to exercises (optional)</label>${state.exercises.map(e=>`<label style="display:flex;gap:9px;align-items:center;margin:9px 0"><input type="checkbox" data-warm-ex="${esc(e.id)}" ${(r.exerciseIds||[]).includes(e.id)?'checked':''}>${esc(e.name)}</label>`).join('')||'<p class="muted">No exercises yet. You can still save this warm-up.</p>'}</div><button class="btn full" onclick="fwWarmupSave('${r.id}')">SAVE WARM UP</button><button class="btn full secondary" onclick="fwWarmupManager()">CANCEL</button>`);
+}
+function fwWarmupSave(id){const name=document.getElementById('fwWarmName')?.value.trim(),steps=document.getElementById('fwWarmSteps')?.value||'';if(!name){alert('Enter a warm-up name');return}const exerciseIds=[...document.querySelectorAll('[data-warm-ex]:checked')].map(x=>x.dataset.warmEx),rows=fwWarmups(),r=rows.find(x=>x.id===id);if(r)Object.assign(r,{name,steps,exerciseIds});else rows.push({id:uid(),name,steps,exerciseIds});save();fwWarmupManager();toast('Handler warm-up saved')}
+function fwWarmupDelete(id){const rows=fwWarmups(),i=rows.findIndex(x=>x.id===id);if(i<0||!confirm('Delete this handler warm-up?'))return;rows.splice(i,1);save();fwWarmupManager()}
+function fwWarmupSelected(s){const manual=s.fwManualWarmupIds||[];return fwWarmups().filter(r=>(r.exerciseIds||[]).includes(s.exerciseId)||manual.includes(r.id))}
+function fwWarmupPanel(s){const selected=fwWarmupSelected(s),available=fwWarmups().filter(r=>!selected.some(x=>x.id===r.id));return `<div class="card" style="border:2px solid #d88aa0"><div class="kicker">🐾 HANDLER WARM UP</div><p class="tiny muted">Attached routines appear automatically. Add another from your library for this session.</p>${selected.map(r=>`<details style="padding:10px 0;border-bottom:1px solid #e6d7dc"><summary style="cursor:pointer;font-weight:800">${esc(r.name)}</summary><div style="white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;background:#fff;border-radius:9px;margin-top:8px">${esc(r.steps)}</div>${!(r.exerciseIds||[]).includes(s.exerciseId)?`<button class="btn small secondary" onclick="fwWarmupRemoveFromSession('${r.id}')">REMOVE FROM SESSION</button>`:''}</details>`).join('')||'<p class="tiny muted">No handler warm-up selected yet.</p>'}<div class="field"><label>Add a saved warm-up to this session</label><select id="fwWarmPick"><option value="">Choose a warm-up…</option>${available.map(r=>`<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}</select></div><button class="btn small secondary" onclick="fwWarmupAddToSession()">+ ADD TO SESSION</button></div>`}
+function fwWarmupAddToSession(){const id=document.getElementById('fwWarmPick')?.value,s=nav.session;if(!s||!id)return;s.fwManualWarmupIds=s.fwManualWarmupIds||[];if(!s.fwManualWarmupIds.includes(id))s.fwManualWarmupIds.push(id);fwPersistLayoutDraft();renderSummary()}
+function fwWarmupRemoveFromSession(id){const s=nav.session;if(!s)return;s.fwManualWarmupIds=(s.fwManualWarmupIds||[]).filter(x=>x!==id);fwPersistLayoutDraft();renderSummary()}
 function renderLibraryHub(){
  const el=document.getElementById('libraryHubScreen');if(!el)return;
- el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 81</div><div class="title" style="font-size:22px">Library</div></div></div>
+ el.innerHTML=`<div class="topbar"><button class="btn small ghost" onclick="show('moreScreen')">‹ Back</button><div class="grow"><div class="eyebrow">FIELDWORK · BUILD 82</div><div class="title" style="font-size:22px">Library</div></div></div>
  <div class="card"><h3>Observations</h3><p class="muted">Java or Handler → what you observe → possible answers.</p><button class="btn full" onclick="fwCatalogManager()">OPEN OBSERVATIONS</button></div>
  <div class="card"><h3>Handler Performance</h3><p class="muted">Edit technical, mental, pressure, response and session-effect choices.</p><button class="btn full" onclick="fwHandlerManager()">MANAGE HANDLER PERFORMANCE</button></div>
+ <div class="card"><h3>🐾 Handler Warm Up</h3><p class="muted">Simple reusable routines: a name, your full steps, and optional exercise attachments.</p><button class="btn full" onclick="fwWarmupManager()">OPEN HANDLER WARM UP</button></div>
  <div class="card"><h3>Training Tools</h3><p class="muted">Random steps, timers, articles and two-variable generators.</p><button class="btn full" onclick="openTemplateManager('tools')">OPEN TRAINING TOOLS</button></div>
  <div class="card"><h3>Your training curriculum is separate</h3><p class="muted">Your goals, exercises, components, progressions and step instructions are not changed by this Library cleanup.</p></div>`;
 }
@@ -1705,6 +1722,7 @@ function fwRemoveUnified(i){syncSummaryFields();fwObsCapture();const s=nav.sessi
 function renderSummary(){const s=nav.session;if(!s)return;const toolOutputs=[...document.querySelectorAll('[id^=toolout-]')].map(el=>({id:el.id,html:el.innerHTML,seconds:el.dataset.seconds}));const rec=progressionRecommendation(s),cur=step(s.exerciseId,s.componentId,s.stepId),ps=proposedStep(s),ints=interferenceItems(),curN=stepNumber(s.exerciseId,s.componentId,s.stepId),psN=ps?stepNumber(s.exerciseId,s.componentId,ps.id):curN;
  document.getElementById('summaryScreen').innerHTML=`<div class="topbar"><button class="exitSessionBtn" onclick="exitSession()">← EXIT</button><div class="grow"><div class="eyebrow">RECORD SESSION</div><div class="title">${esc(s.exerciseName)} — ${esc(s.componentName)}</div><div class="subtitle">Step ${curN} · ${esc(s.sessionTime||'')}</div></div></div>
  ${fwFold('recordTools','🎲 TRAINING TOOLS',liveTools(s),'Timer and randomizers · run them here',true)}
+ ${fwWarmupPanel(s)}
  ${fwTrackingPanel(s)}
  ${fwUnifiedObservations(s)}
  <div class="card"><div class="kicker">SESSION NOTES</div><textarea id="sumNotes" style="min-height:100px;width:100%;box-sizing:border-box" placeholder="Anything you want to remember…">${esc(s.note||'')}</textarea></div>
